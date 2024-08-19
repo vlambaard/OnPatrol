@@ -15,5 +15,6 @@ Desktop.ini
 *.ini
 *.dat
 *.log
+*.sqlite
 
 # Add any other patterns you want to ignore
