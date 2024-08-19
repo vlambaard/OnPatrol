@@ -89,7 +89,7 @@ import json
 
 from terminaltables import AsciiTable as SingleTable 
 
-from console.utils import wait_key, cls
+#from console.utils import wait_key, cls
 
 logger = logging.getLogger('on_patrol_server')
 
