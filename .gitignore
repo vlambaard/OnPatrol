@@ -13,5 +13,7 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 *.ini
+*.dat
+*.log
 
 # Add any other patterns you want to ignore
