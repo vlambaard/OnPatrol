@@ -12,5 +12,6 @@ __pycache__/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+*.ini
 
 # Add any other patterns you want to ignore
