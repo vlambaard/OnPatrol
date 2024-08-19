@@ -46,6 +46,8 @@ import asyncio#, platform
 # if platform.system()=='Windows':
 #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+from TelegramNotifier import TelegramNotifier as TelegramNotifier_
+from NotificationRecorder import NotificationRecorder as NotificationRecorder_
 
 import datetime
 from dateutil.parser import parse as datetime_parser
@@ -65,10 +67,6 @@ from aiogram import Bot as TelegramBot
 
 import sqlite3
 from sqlite3worker import Sqlite3Worker #Need to use own modified version
-
-from TelegramNotifier import TelegramNotifier as TelegramNotifier_
-from NotificationRecorder import NotificationRecorder as NotificationRecorder_
-
 
 from Common import xstr, str2bool, csv2list, time2seconds, \
                     TelegramFloodController, CustomQueueListener, \
