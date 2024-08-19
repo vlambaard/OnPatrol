@@ -42,6 +42,12 @@ from consolemenu import ConsoleMenu, Screen
 from consolemenu.items import ExitItem
 from consolemenu.prompt_utils import PromptUtils
 
+
+from rich.console import Console
+# This is used to refactor from the old Console library no longer available in this version of Python
+import keyboard
+
+
 import asyncio#, platform
 # if platform.system()=='Windows':
 #     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -447,10 +453,14 @@ CONFIG_FILE_SECTION_TEMPLATES = {
     'DEEPSTACK'             : DEEPSTACK_CONFIG_SECTION_TEMPLATE,
     'UNREGISTERED_CAMERAS'  : UNREGISTERED_CAMERAS_EMAIL_CONFIG_SECTION_TEMPLATE
                                 }
-                            
-                            
-                            
-                   
+
+
+def cls():
+    # Check if the system is Windows
+    if os.name == 'nt':
+        os.system('cls')  # Clear command for Windows
+    else:
+        os.system('clear')  # Clear command for Unix/Linux/Mac
 
 def kill_pid_lock(lockfile):
     '''
