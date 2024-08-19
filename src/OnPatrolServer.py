@@ -26,15 +26,15 @@
 '''
 On Patrol Server
 '''
-__version__   = '1.3.6'
+__version__   = '1.4.0'
 __build__     = '1'
 __author__    = 'DM Tomlinson'
 __copyright__ = 'Copyright (c) 2022 DM Tomlinson'
 __license__   = '''The MIT License (MIT)'''
 
 
-import shutup  # Supress aiogram bot.close() deprecation warning
-shutup.please()
+#import shutup  # Supress aiogram bot.close() deprecation warning
+#shutup.please()
 
 from packaging import version
 
@@ -42,7 +42,11 @@ from consolemenu import ConsoleMenu, Screen
 from consolemenu.items import ExitItem
 from consolemenu.prompt_utils import PromptUtils
 
-import asyncio
+import asyncio#, platform
+# if platform.system()=='Windows':
+#     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+
 import datetime
 from dateutil.parser import parse as datetime_parser
 
@@ -67,8 +71,8 @@ from NotificationRecorder import NotificationRecorder as NotificationRecorder_
 
 
 from Common import xstr, str2bool, csv2list, time2seconds, \
-    splitemails2list, TelegramFloodController, \
-    CustomQueueListener, is_email_address, LocalQueueHandler
+                    TelegramFloodController, CustomQueueListener, \
+                    is_email_address, LocalQueueHandler, generate_code
 
 
 from logging.handlers import TimedRotatingFileHandler
@@ -81,8 +85,8 @@ import locale
 locale.setlocale(locale.LC_ALL, '')
 
 import logging
-
-
+import string
+import pickle
 import json
 
 from terminaltables import AsciiTable as SingleTable 
@@ -91,30 +95,10 @@ from console.utils import wait_key, cls
 
 logger = logging.getLogger('on_patrol_server')
 
-shutup.please()
+#shutup.please()
 
 SIXMONTHS = 60*60*24*182
 PASSWORD_PATTERN = '^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,32}$'
-
-
-#--- EMAIL_TEMPLATE_CONFIG
-CAMERA_EMAIL_TEMPLATE = { 'EVENT_TYPE_RE'       : '',
-                          'EVENT_TYPE_GROUP'    : 0 ,
-                          'EVENT_DATETIME_RE'   : '',
-                          'EVENT_DATE_GROUP'    : 0 ,
-                          'EVENT_TIME_GROUP'    : 0 ,
-                          'CAMERA_NAME_RE'      : '',
-                          'CAMERA_NAME_GROUP'   : 0 ,
-                          'SERIAL_NUMBER_RE'    : '',
-                          'SERIAL_NUMBER_GROUP' : 0 ,
-                          'CHANNEL_NAME_RE'     : '',
-                          'CHANNEL_NAME_GROUP'  : 0 ,
-                          'CHANNEL_NUMBER_RE'   : '',
-                          'CHANNEL_NUMBER_GROUP': 0 ,
-                          'TEST_MESSAGE_RE'     : '',
-                          'TEST_MESSAGE_CAMERA_NAME_RE': '',
-                          'TEST_MESSAGE_CAMERA_NAME_GROUP': ''}
-
 
 #--- DEFAULT_CAMERACLUSTER_CONFIG
 
@@ -202,19 +186,6 @@ INDICATE_EVENT_TYPE = False
 ;===========================================================================
 '''    
 
-#--- EXAMPLE DATA SERVER PROFILE
-EXAMPLE_DATA_SERVER_PROFILE = """
-[DEFAULT]
-; Section names should be a unique ID
-
-; data_server should correspond to section name in ../data_servers.ini
-data_server = 
-
-; Comma delimited list of camera names (leave empty for all cameras)
-cameras = 
-
-"""
-
 DEFAULT_DEEPSTACK_CAMERA_PROFILE = '''
 ;=====================================================================
 ;==== DO NOT REMOVE THE DEFAULT ENTRY - ADD NEW CAMERAS BELOW IT =====
@@ -271,144 +242,217 @@ TIME_START      = 20:00
 TIME_STOP       = 06:00
 '''
 
-#--- DATA_SERVER_CONFIG_TEMPLATE
-DATA_SERVER_CONFIG_TEMPLATE = {'ENABLED'              : False,
-                                 'SERVER_NAME'          : '',
-                                 'ADDRESS'              : '',
-                                 'PORT'                 : 6280,
-                                 'USERNAME'             : '',
-                                 'PASSWORD'             : ''}
+#--- GLOBAL CONFIG BASE STRUCTURE                             
+CONFIG = {
+     'SERVER'               :{},
+     'RECORDER'             :{},
+     'HTTP'                 :{},
+     'SMTP'                 :{
+                              'EMAIL_TEMPLATES':{}
+                              },
+     'ISAPI'                :{},
+     'TELEGRAM'             :{},
+     'DEEPSTACK'            :{
+                              'CAMERA_PROFILES'   : {},
+                              'CAMERA_NAME_INDEX' : {},
+                              'ALL_CAMERAS_INDEX' : {}
+                              },
+     'UNREGISTERED_CAMERAS'  :{
+                              'EMAIL_INDEX':{}
+                              },
+     'CAMERAS'              :{
+                              'CONFIGS':{},
+                              'ISAPI_RESPONSE_USERNAME_INDEX': {},
+                              'EMAIL_INDEX':{}
+                              },
+     'NOTIFICATIONS'        :[],
+     'CAMERA_CLUSTERS'      :{},
+     'PATHS'                :{
+                              'EXE_PATH'             :'',
+                              'DATA_PATH'            :'',
+                              'CONFIG_PATH'          :'',
+                              'CAMERA_CLUSTER_PATH'  :'',
+                              'IMAGES_SAVE_PATH'     :''
+                              }
+         }
 
+#--- EMAIL_TEMPLATE_CONFIG
+CAMERA_EMAIL_TEMPLATE = { 
+    'EVENT_TYPE_RE'       : '',
+    'EVENT_TYPE_GROUP'    : 0 ,
+    'EVENT_DATETIME_RE'   : '',
+    'EVENT_DATE_GROUP'    : 0 ,
+    'EVENT_TIME_GROUP'    : 0 ,
+    'CAMERA_NAME_RE'      : '',
+    'CAMERA_NAME_GROUP'   : 0 ,
+    'SERIAL_NUMBER_RE'    : '',
+    'SERIAL_NUMBER_GROUP' : 0 ,
+    'CHANNEL_NAME_RE'     : '',
+    'CHANNEL_NAME_GROUP'  : 0 ,
+    'CHANNEL_NUMBER_RE'   : '',
+    'CHANNEL_NUMBER_GROUP': 0 ,
+    'TEST_MESSAGE_RE'     : '',
+    'TEST_MESSAGE_CAMERA_NAME_RE': '',
+    'TEST_MESSAGE_CAMERA_NAME_GROUP': ''
+                          }
 
 
 #--- NOTIFICATION_CONFIG_TEMPLATE
-NOTIFICATION_CONFIG_TEMPLATE = {'NOTIFICATION_NAME'     : '',
-                                'ENABLED'               : False,
-                                'CAMERA_CLUSTERS'       : [],                               
-                                'BOT_TOKEN'             : '',
-                                'BOT_CHAT_ID'           : '',
-                                'BOT_GROUP_NAME'        : '',
-                                'MSG_EXPIRY_TIME'       : 0,
-                                'INDICATE_EVENT_TYPE'   : False,
-                                'LIVE_VERIFICATION'     : {'ACTIVE':False,
-                                                           'REASON':'',
-                                                           'BOT_USERNAME':'', 
-                                                           'GROUP_NAME':''
-                                                           }
+NOTIFICATION_CONFIG_TEMPLATE = {
+    'NOTIFICATION_NAME'     : '',
+    'ENABLED'               : False,
+    'CAMERA_CLUSTERS'       : [],                               
+    'BOT_TOKEN'             : '',
+    'BOT_CHAT_ID'           : '',
+    'BOT_GROUP_NAME'        : '',
+    'MSG_EXPIRY_TIME'       : 0,
+    'INDICATE_EVENT_TYPE'   : False,
+    'LIVE_VERIFICATION'     : {
+                               'ACTIVE':False,
+                               'REASON':'',
+                               'BOT_USERNAME':'', 
+                               'GROUP_NAME':''
+                               }
                                 }
 
 #--- CAMERA_CONFIG_TEMPLATE
-CAMERA_CONFIG_TEMPLATE = {'CAMERA_ENABLED'                : True,
-                          'CAMERA_NAME'                   : '',
-                          'CAMERA_DESCRIPTION'            : '',
-                          'CAMERA_TECH_NOTES'             : '',
-                          'CAMERA_SITE_NOTES'             : '',
-                          'CAMERA_LATITUDE'               : '',
-                          'CAMERA_LONGITUDE'              : '',
-                          'CAMERA_MANUFACTURER'           : '',
-                          'CAMERA_MODEL_SERIES'           : '',
-                          'CAMERA_ADDRESS'                : '',
-                          'CAMERA_PORT'                   : '',
-                          'CAMERA_USERNAME'               : '',
-                          'CAMERA_PASSWORD'               : '',
-                          'CAMERA_CHANNEL_NUMBER'         : '',
-                          'REPLY_TO_LOCAL_IP'             : False,
-                          'ENABLE_EMAIL_NOTIFICATIONS'    : False,
-                          'CAMERA_EMAIL_ADDRESS'          : '',
-                          'CAMERA_EMAIL_TEMPLATE'         : '',
-                          'ENABLE_WEBHOOK_NOTIFICATIONS'  : False,
-                          'ENABLE_HTTP_API_NOTIFICATIONS' : False,
-                          'ENABLE_FTP_NOTIFICATIONS'      : False,
-                          'FTP_IMAGES_KEEP_TIME'          : '00:08:00'}
+CAMERA_CONFIG_TEMPLATE = {
+    'CAMERA_ENABLED'              : True,
+    'CAMERA_NAME'                 : '',
+    'DESCRIPTION'                 : '',
+    'LATITUDE'                    : '',
+    'LONGITUDE'                   : '',
+    'CHANNEL_NUMBER'              : '1',
+    'CHANNEL_STREAM_NUMBER'       : '1',
+    'IMAGES_KEEP_TIME'            : '00:01:00',
+    'EMAIL_ENABLED'               : False,                          
+    'EMAIL_ADDRESS'               : 'my_camera_name@my_domain.com',
+    'EMAIL_TEMPLATE'              : 'HIKVISION_DEFAULT',
+    'RTSP_RECORDING_ENABLED'      : False,
+    'ADDRESS'                     : '',
+    'USERNAME'                    : '',
+    'PASSWORD'                    : '',                          
+    'RTSP_PORT'                   : 554,
+    'RTSP_RECORDING_LENGTH_SEC'   : 4,
+    'RTSP_URL_PATH'               : '/Streaming/Channels/101',   
+    'RTSP_REC_ON_EVENT_TYPE'     : 'Intrusion Detection, Test Notification.',                  
+    'ISAPI_ENABLED'               : False,
+    'ISAPI_REPLY_TO_LOCAL_IP'     : False,                             
+    'ISAPI_PORT'                  : 80,
+    'DEEPSTACK_DETECTION_ENABLED' : True,
+    'DEEPSTACK_MIN_CONFIDENCE'    : 0.43,
+    'DEEPSTACK_PREFILTER_ENABLED' : False
+                          }
 
 
 #--- UNREGISTERED_CAMERA_EMAIL_SENDERS_TEMPLATE
-UNREGISTERED_CAMERA_EMAIL_SENDERS_TEMPLATE = {'EMAIL_ADDRESS':  '',
-                                              'EMAIL_TEMPLATE': ''}
+UNREGISTERED_CAMERA_EMAIL_SENDERS_TEMPLATE = {
+    'EMAIL_ADDRESS':  '',
+    'EMAIL_TEMPLATE': ''
+                                              }
 
 
 #--- CAMERA_GROUP_CONFIG_TEMPLATE
-CAMERA_GROUP_CONFIG_TEMPLATE = {'IPC_NAMES'           : [],
-                                'CHANNEL_NAMES'       : [],
-                                'CHANNEL_NUMBERS'     : [],
-                                'EVENT_TYPES'         : ['Intrusion Detection'],
-                                'ENABLED'             : True,
-                                'TIME_START'          : '21:00',
-                                'TIME_STOP'           : '06:00',
-                                'MONDAY'              : True,
-                                'TUESDAY'             : True,
-                                'WEDNESDAY'           : True,
-                                'THURSDAY'            : True,
-                                'FRIDAY'              : True,
-                                'SATURDAY'            : True,
-                                'SUNDAY'              : True
-                            }
-
-#--- DATA_SERVER_PROFILE_TEMPLATE
-DATA_SERVER_PROFILE_TEMPLATE = {'DATA_SERVER' : '',
-                                'CAMERAS': []}
+CAMERA_GROUP_CONFIG_TEMPLATE = {
+    'IPC_NAMES'           : [],
+    'CHANNEL_NAMES'       : [],
+    'CHANNEL_NUMBERS'     : [],
+    'EVENT_TYPES'         : ['Intrusion Detection', 'Person'],
+    'ENABLED'             : True,
+    'TIME_START'          : '21:00',
+    'TIME_STOP'           : '06:00',
+    'MONDAY'              : True,
+    'TUESDAY'             : True,
+    'WEDNESDAY'           : True,
+    'THURSDAY'            : True,
+    'FRIDAY'              : True,
+    'SATURDAY'            : True,
+    'SUNDAY'              : True
+                                 }
 
 #--- DEEP_STACK_CAMERA_CONFIG_TEMPLATE
-DEEPSTACK_CAMERA_PROFILE_TEMPLATE = {'IPC_NAMES'           : [],
-                                     'CHANNEL_NAMES'       : [],
-                                     'CHANNEL_NUMBERS'     : [],
-                                     'MIN_CONFIDENCE'      : 0.45,
-                                     'ENABLED'             : True,
-                                     'TIME_START'          : '21:00',
-                                     'TIME_STOP'           : '06:00',
-                                     'MONDAY'              : True,
-                                     'TUESDAY'             : True,
-                                     'WEDNESDAY'           : True,
-                                     'THURSDAY'            : True,
-                                     'FRIDAY'              : True,
-                                     'SATURDAY'            : True,
-                                     'SUNDAY'              : True
+DEEPSTACK_CAMERA_PROFILE_TEMPLATE = {
+    'IPC_NAMES'           : [],
+    'CHANNEL_NAMES'       : [],
+    'CHANNEL_NUMBERS'     : [],
+    'MIN_CONFIDENCE'      : 0.45,
+    'ENABLED'             : True,
+    'TIME_START'          : '21:00',
+    'TIME_STOP'           : '06:00',
+    'MONDAY'              : True,
+    'TUESDAY'             : True,
+    'WEDNESDAY'           : True,
+    'THURSDAY'            : True,
+    'FRIDAY'              : True,
+    'SATURDAY'            : True,
+    'SUNDAY'              : True
                                      }
 
+# SECTION TEMPLATES FOR CONFIG.INI FILE
+SERVER_DETAILS_CONFIG_TEMPLATE = {
+    'SERVER_LONG_NAME'  : 'OnPatrolServer',
+    'SERVER_SHORT_NAME' : 'OnPatrol',
+    'HOST_NAME'         : '127.0.0.1',
+                                 }
 
-#--- CONFIG                             
-CONFIG =    {'BOT_TOKEN':'',
-             'BOT_USERNAME':',',
-             'ADMIN_GROUP_CHAT_ID':',',
-             'TERMS_OF_USE':',',
-             'DISABLE_WEB_PAGE_PREVIEW':',',
-             'SMTP_ENABLED':True,
-             #'SMTP_ALLOW_UNREGISTERD_CAMERAS': False,
-             'SMTP_ONLY_ALLOW_SENT_FROM':',',
-             'SMTP_PORT_NUMBER':',',
-             'HOST_NAME':',',
-             'HTTP_ENABLED':True,
-             'HTTP_PORT_NUMBER':',',
-             'IMAGES_KEEP_TIME': '01:00:00',
-             'MIN_LAT':',',
-             'MAX_LAT':',',
-             'MIN_LONG':',',
-             'MAX_LONG':',',
-             'LICENSE_ACCEPTED':',',
-             'NOTIFICATIONS':[],
-             'CAMERA_CLUSTERS':{},
-             'EXE_PATH':'',
-             'DATA_PATH':'',
-             'CONFIG_PATH':'',
-             'CAMERA_CLUSTER_PATH':'',
-             'IMAGES_SAVE_PATH':'',
-             'LOG_NOTIFIER_TOKEN' : '',
-             'LOG_NOTIFIER_CHAT_IDS': [],
-             'LOG_NOTIFIER_SENDER_NAME' : '',
-             'DIRECT_ALERT_EXPIRY_TIME':60*60*6,
-             'SERVER_LONG_NAME':'',
-             'SERVER_SHORT_NAME':'',
-             'DEBUG': False,
-             'RPC_ENABLED':  True,
-             'RPC_HOSTNAME': '0.0.0.0',
-             'RPC_PORT':     81,
-             'RPC_SSL_ENABLED':  False,
-             'RPC_CERT_PATH': ''
-             }  
+RECORDER_CONFIG_SECTION_TEMPLATE = {
+    'IMAGES_SAVE_PATH' : './images',
+    'IMAGES_KEEP_TIME' : '01:00:00'
+                                   }
+    
+HTTP_STATUS_SERVER_CONFIG_SECTION_TEMPLATE = {
+    'ENABLED' : True,
+    'PORT'    : 80
+                                             }
 
-#https://telegram.me/botname?start=123456789
+SMTP_CONFIG_SECTION_TEMPLATE = {
+    'ENABLED'      : False,
+    'PORT'         : 25
+                               }
 
 
+ISAPI_CONFIG_SECTION_TEMPLATE = {
+    'ENABLED': False,
+    'PORT' : 8080
+                                }
+
+
+TELEGRAM_LOG_NOTIFIER_CONFIG_SECTION_TEMPLATE = {
+    'ENABLED'      : False,
+    'TOKEN'        : '',
+    'CHAT_ID'     : '',
+    'SENDER_NAME'  : 'OnPatrolServer',
+                                                }
+
+DEEPSTACK_CONFIG_SECTION_TEMPLATE = {
+    'ENABLED'          : False,
+    'SERVER'           : '127.0.0.1',
+    'PORT'             : '5000',
+    #'API_PATH'         : '/v1/vision/detection',
+    'API_KEY'          : ''
+                                    }
+
+UNREGISTERED_CAMERAS_EMAIL_CONFIG_SECTION_TEMPLATE = {
+    'EMAIL_FROM_UNREGISTERED_CAMERAS_ENABLED' : False,
+    'DEEPSTACK_DETECTION_ENABLED'             : False,
+    'DEEPSTACK_MIN_CONFIDENCE'                : 0.45,
+    'DEEPSTACK_PREFILTER_ENABLED'             : False
+                                                     }
+
+CONFIG_FILE_SECTION_TEMPLATES = {
+    'SERVER'                : SERVER_DETAILS_CONFIG_TEMPLATE,
+    'RECORDER'              : RECORDER_CONFIG_SECTION_TEMPLATE,
+    'HTTP'                  : HTTP_STATUS_SERVER_CONFIG_SECTION_TEMPLATE,
+    'SMTP'                  : SMTP_CONFIG_SECTION_TEMPLATE,
+    'ISAPI'                 : ISAPI_CONFIG_SECTION_TEMPLATE,
+    'TELEGRAM'              : TELEGRAM_LOG_NOTIFIER_CONFIG_SECTION_TEMPLATE,
+    'DEEPSTACK'             : DEEPSTACK_CONFIG_SECTION_TEMPLATE,
+    'UNREGISTERED_CAMERAS'  : UNREGISTERED_CAMERAS_EMAIL_CONFIG_SECTION_TEMPLATE
+                                }
+                            
+                            
+                            
+                   
 
 def kill_pid_lock(lockfile):
     '''
@@ -438,20 +482,12 @@ def kill_pid_lock(lockfile):
                     except NoSuchProcess:
                         pass
                     except AccessDenied:
-                        msg = '\nAccess Denied to terminate process. Check user priviliges. (press enter to continue)'
-                        PromptUtils(Screen()).enter_to_continue(message=msg)
-                        # sg.Popup('\nAccess Denied to terminate process. Check user priviliges',
-                        #          keep_on_top=True)
-                        exit(0)
+                        pass
                     except TimeoutExpired:
                         try:
                             p.kill()
                         except AccessDenied:
-                            msg = '\nAccess Denied to terminate process. Check user priviliges. (press enter to continue)'
-                            # PromptUtils(Screen()).enter_to_continue(message=msg)
-                            # sg.Popup('\nAccess Denied to terminate process. Check user priviliges',
-                            #          keep_on_top=True)
-                            exit(0)
+                            pass
                         except Exception:
                             pass
                     except Exception:
@@ -498,368 +534,193 @@ def check_pid_lock(lockfile):
         pass
 
 
+def reload_config(online_reload = False):
+    load_camera_config(online_reload)
+    load_NotificationConfig(online_reload)
+    load_CameraClusterConfigs(online_reload)
     
+    #if CONFIG['DEEPSTACK']['ENABLED']:
+    load_DeepStackCameraProfiles(online_reload)
+    
+    #if CONFIG['SMTP']['ENABLED']:
+    load_email_templates(online_reload)
+    load_unregistered_camera_email_senders(online_reload)    
     
 def load_config():
     global CONFIG
     try:
         config = configparser.ConfigParser(allow_no_value=True)
-        config.read(os.path.join(CONFIG['CONFIG_PATH'] , 'config.ini'))
-        sections = config.sections()
+        config.read(os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'config.ini'))
     except Exception as ex:
         logger.critical(f'Error loading config.ini\n{str(ex)}')
         raise OSError(f'Error loading config.ini\n{str(ex)}')
+    
+    # Make sure all sections and options are available in the config file
+    for section in CONFIG_FILE_SECTION_TEMPLATES.keys():
+        if not config.has_section(section): config.add_section(section)
+        for option in CONFIG_FILE_SECTION_TEMPLATES[section].keys():
+            if not config.has_option(section, option):
+                config.set(section, option, str(CONFIG_FILE_SECTION_TEMPLATES[section][option]))
         
-    #Check if config sections exist and if not create it.
-    #if not 'TELEGRAM_CONFIG'                in sections: config.add_section('TELEGRAM_CONFIG')
-    if not 'SERVER_DETAILS'                 in sections: config.add_section('SERVER_DETAILS')
-    if not 'SMTP_CONFIG'                    in sections: config.add_section('SMTP_CONFIG')    
-    if not 'HTTP_CONFIG'                    in sections: config.add_section('HTTP_CONFIG')  
-    if not 'RECORDER_CONFIG'                in sections: config.add_section('RECORDER_CONFIG')
-    if not 'TELEGRAM_LOG_NOTIFIER'          in sections: config.add_section('TELEGRAM_LOG_NOTIFIER')
-    if not 'DEEPSTACK_CONFIG'               in sections: config.add_section('DEEPSTACK_CONFIG')
-    
-    
-    if not config.has_option('SERVER_DETAILS', 'SERVER_LONG_NAME'):
-        config.set('SERVER_DETAILS', 'SERVER_LONG_NAME', '')
-    if not config.has_option('SERVER_DETAILS', 'SERVER_SHORT_NAME'):
-        config.set('SERVER_DETAILS', 'SERVER_SHORT_NAME', '')    
-
-    #Create and load SMTP server default values if not exists in file
-    if not config.has_option('SMTP_CONFIG','SMTP_ENABLED'):
-        config.set('SMTP_CONFIG','SMTP_ENABLED','True')
-    if not config.has_option('SMTP_CONFIG','SMTP_ONLY_ALLOW_SENT_FROM'):
-        config.set('SMTP_CONFIG','SMTP_ONLY_ALLOW_SENT_FROM','')
-    # if not config.has_option('SMTP_CONFIG','SMTP_ALLOW_UNREGISTERD_CAMERAS'):
-    #     config.set('SMTP_CONFIG','SMTP_ALLOW_UNREGISTERD_CAMERAS', False)   
-    if not config.has_option('SMTP_CONFIG','SMTP_PORT_NUMBER'):
-        config.set('SMTP_CONFIG','SMTP_PORT_NUMBER','25')
-    if not config.has_option('SMTP_CONFIG','HOST_NAME'):
-        config.set('SMTP_CONFIG','HOST_NAME','localhost')
-    
-    #Create and load HTTP server default values if not exists in file
-    if not config.has_option('HTTP_CONFIG','HTTP_ENABLED'):
-        config.set('HTTP_CONFIG','HTTP_ENABLED', 'True')     
-    if not config.has_option('HTTP_CONFIG','HTTP_PORT_NUMBER'):
-        config.set('HTTP_CONFIG','HTTP_PORT_NUMBER','80') 
-        
-    #Create and load Recorder config
-    if not config.has_option('RECORDER_CONFIG','IMAGES_SAVE_PATH'):
-        config.set('RECORDER_CONFIG','IMAGES_SAVE_PATH', './data/images')    
-    if not config.has_option('RECORDER_CONFIG','IMAGES_KEEP_TIME'):
-        config.set('RECORDER_CONFIG','IMAGES_KEEP_TIME', '01:00:00')        
-
-    #Create and load Deepstack settings
-    if not config.has_option('DEEPSTACK_CONFIG', 'DEEPSTACK_ENABLED'):
-        config.set('DEEPSTACK_CONFIG', 'DEEPSTACK_ENABLED', 'False')
-    if not config.has_option('DEEPSTACK_CONFIG', 'DEEPSTACK_SERVER'):
-        config.set('DEEPSTACK_CONFIG', 'DEEPSTACK_SERVER', '')
-    if not config.has_option('DEEPSTACK_CONFIG', 'DEEPSTACK_PORT'):
-        config.set('DEEPSTACK_CONFIG', 'DEEPSTACK_PORT', '82')
-    if not config.has_option('DEEPSTACK_CONFIG', 'DEEPSTACK_API_PATH'):
-        config.set('DEEPSTACK_CONFIG', 'DEEPSTACK_API_PATH', '/v1/vision/detection')        
-    if not config.has_option('DEEPSTACK_CONFIG', 'DEEPSTACK_API_KEY'):
-        config.set('DEEPSTACK_CONFIG', 'DEEPSTACK_API_KEY', '')
-    
-    #Create and load Telegram log notifier settings
-    if not config.has_option('TELEGRAM_LOG_NOTIFIER', 'ENABLED'):
-        config.set('TELEGRAM_LOG_NOTIFIER', 'ENABLED', 'True')
-    if not config.has_option('TELEGRAM_LOG_NOTIFIER', 'TOKEN'):
-        config.set('TELEGRAM_LOG_NOTIFIER', 'TOKEN', '')
-    if not config.has_option('TELEGRAM_LOG_NOTIFIER', 'CHAT_IDS'):
-        config.set('TELEGRAM_LOG_NOTIFIER', 'CHAT_IDS', '')
-    if not config.has_option('TELEGRAM_LOG_NOTIFIER', 'SENDER_NAME'):
-        config.set('TELEGRAM_LOG_NOTIFIER', 'SENDER_NAME', 'OnPatrolServer')  
-
-    with open(os.path.join(CONFIG['CONFIG_PATH'] , 'config.ini'), 'w') as configfile:
+    with open(os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'config.ini'), 'w') as configfile:
         config.write(configfile)
 
-    
-    #Load server details
-    ServerDetails = config['SERVER_DETAILS']
-    CONFIG['SERVER_SHORT_NAME'] = ServerDetails.get('SERVER_SHORT_NAME', '')
-    CONFIG['SERVER_LONG_NAME'] = ServerDetails.get('SERVER_LONG_NAME', '')
-
-    #Load SMTP Server config section
-    SMTPConfig = config['SMTP_CONFIG']
-    CONFIG['SMTP_ENABLED']                   =     str2bool(SMTPConfig.get('SMTP_ENABLED', True))
-    CONFIG['SMTP_ONLY_ALLOW_SENT_FROM']      =     SMTPConfig.get('SMTP_ONLY_ALLOW_SENT_FROM', 'localbot@localhost.local')
-    # CONFIG['SMTP_ALLOW_UNREGISTERD_CAMERAS'] =     str2bool(SMTPConfig.get('SMTP_ALLOW_UNREGISTERD_CAMERAS', False))
-    CONFIG['SMTP_PORT_NUMBER']               = int(SMTPConfig.get('SMTP_PORT_NUMBER'       , '25') or 25)
-    CONFIG['HOST_NAME']                      =     SMTPConfig.get('HOST_NAME'              , '127.0.0.1')
-
-    #Load HTTP Server config section
-    HTTPConfig = config['HTTP_CONFIG']
-    CONFIG['HTTP_ENABLED'] = str2bool(HTTPConfig.get('HTTP_ENABLED',True))
-    CONFIG['HTTP_PORT_NUMBER'] = int(HTTPConfig.get('HTTP_PORT_NUMBER','80') or 80)
-    
-    #Load recorder config section
-    RecorderConfig = config['RECORDER_CONFIG']
-    CONFIG['IMAGES_SAVE_PATH']      =     RecorderConfig.get('IMAGES_SAVE_PATH', './data/images')       
-    #   Make sure a minimum of 5 minutes is kept to allow notifications to send images
-    keeptime = time2seconds(RecorderConfig.get('IMAGES_KEEP_TIME', '01:00:00'))
+    for section in CONFIG_FILE_SECTION_TEMPLATES.keys():
+        if section not in CONFIG.keys():
+            CONFIG.update({section:{}})
+        for option in CONFIG_FILE_SECTION_TEMPLATES[section].keys():
+            if config.has_option(section,option):
+                if isinstance(CONFIG_FILE_SECTION_TEMPLATES[section][option],bool):
+                    CONFIG[section].update({option : str2bool(config[section][option])})
+                elif isinstance(CONFIG_FILE_SECTION_TEMPLATES[section][option],int):
+                    CONFIG[section].update({option : int(config[section][option])})
+                elif isinstance(CONFIG_FILE_SECTION_TEMPLATES[section][option],float):
+                    CONFIG[section].update({option : float(config[section][option])})
+                else:
+                    CONFIG[section].update({option : config[section][option]})
+     
+    # Make sure a minimum of 5 minutes is kept to allow notifications to send images
+    keeptime = time2seconds(CONFIG['RECORDER']['IMAGES_KEEP_TIME'])
     if keeptime < 300:
         keeptime = 300
         logger.warning('Loading config.ini: minimum IMAGES_KEEP_TIME set to 00:00:05')
-    CONFIG['IMAGES_KEEP_TIME']      =     keeptime
+    CONFIG['RECORDER']['IMAGES_KEEP_TIME'] = keeptime
     
-    #Validate image path after loading it from config
-    if CONFIG['IMAGES_SAVE_PATH'].strip() == '':
-        CONFIG['IMAGES_SAVE_PATH'] = './data/images'
-    if CONFIG['IMAGES_SAVE_PATH'].strip().startswith('./'):
-        CONFIG['IMAGES_SAVE_PATH'] = os.path.join(CONFIG['EXE_PATH'], CONFIG['IMAGES_SAVE_PATH'][2:])    
-
-    #Load DeepStack details
-    deepstack_details = config['DEEPSTACK_CONFIG']
-    CONFIG['DEEPSTACK_ENABLED']           = str2bool(deepstack_details.get('DEEPSTACK_ENABLED',))
-    CONFIG['DEEPSTACK_SERVER']            = deepstack_details.get('DEEPSTACK_SERVER',)
-    CONFIG['DEEPSTACK_PORT']              = int(deepstack_details.get('DEEPSTACK_PORT', '82') or 82)
-    CONFIG['DEEPSTACK_API_PATH']          = deepstack_details.get('DEEPSTACK_API_PATH',)
-    CONFIG['DEEPSTACK_API_KEY']           = deepstack_details.get('DEEPSTACK_API_KEY',)
-    CONFIG['DEEPSTACK_URL']               = 'http://' + CONFIG['DEEPSTACK_SERVER'].strip('/') + ':' + str(CONFIG['DEEPSTACK_PORT']) + '/' + CONFIG['DEEPSTACK_API_PATH'].strip('/')
+    # Validate image path after loading it from config
+    if CONFIG['RECORDER']['IMAGES_SAVE_PATH'].strip() == '':
+        CONFIG['RECORDER']['IMAGES_SAVE_PATH'] = './images'
+    if CONFIG['RECORDER']['IMAGES_SAVE_PATH'].strip().startswith('./'):
+        CONFIG['PATHS']['IMAGES_SAVE_PATH'] = os.path.join(CONFIG['PATHS']['DATA_PATH'], CONFIG['RECORDER']['IMAGES_SAVE_PATH'][2:])    
     
-    #Load Telegram Log Notifier settings
-    LogNotifierConfig = config['TELEGRAM_LOG_NOTIFIER']
-    CONFIG['LOG_NOTIFIER_ENABLED'] = str2bool(LogNotifierConfig.get('ENABLED', 'False'))
-    CONFIG['LOG_NOTIFIER_TOKEN'] = LogNotifierConfig.get('TOKEN', '')
-    CONFIG['LOG_NOTIFIER_CHAT_IDS'] = csv2list(LogNotifierConfig.get('CHAT_IDS',''))
-    CONFIG['LOG_NOTIFIER_SENDER_NAME'] = LogNotifierConfig.get('SENDER_NAME','OnPatrolServer')
+    CONFIG['DEEPSTACK']['URL'] = 'http://' + CONFIG['DEEPSTACK']['SERVER'].strip('/') + \
+        ':' + str(CONFIG['DEEPSTACK']['PORT'])# + '/' + CONFIG['DEEPSTACK']['API_PATH'].strip('/')
+    if not CONFIG['DEEPSTACK']['API_KEY']:
+        CONFIG['DEEPSTACK']['API_KEY'] = None
 
-    CONFIG['VERSION'] = __version__
-    CONFIG['SUPPORTED_CLIENT_VERSION'] = '1.0.1'
+    CONFIG['VERSION']   = __version__
     CONFIG['COPYRIGHT'] = __copyright__
     
     #Load module specific config
     reload_config()
 
 
-
-
-                  
-
-# def load_camera_config():
-#     global CONFIG
-#     logger.info(f'Loading camera configs from {CONFIG["CONFIG_PATH"]}')
+def load_camera_config(online_reload=False):
+    global CONFIG
+    logger.info(f'Loading camera configs from {CONFIG["PATHS"]["CONFIG_PATH"]}')
     
-#     config_path = os.path.join(CONFIG['CONFIG_PATH'] , 'cameras.ini')
-#     data_path   = os.path.join(CONFIG['DATA_PATH']   , 'camera_data.dat')
+    config_path = os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'cameras.ini')
+    data_path   = os.path.join(CONFIG['PATHS']['DATA_PATH']   , 'camera_data.dat')
     
-#     #Load cameras.ini config file 
-#     config = configparser.ConfigParser(allow_no_value=True)
-#     try:
-#         config.read(config_path)
-#     except Exception as ex:
-#         logger.warning(f'Error reading camera.ini from {config_path}\n{str(ex)}')
+    #Load cameras.ini config file 
+    config = configparser.ConfigParser(allow_no_value=True)
+    try:
+        config.read(config_path)
+    except Exception as ex:
+        logger.error(f'Error reading cameras.ini from {config_path}\n{str(ex)}')
+
+
+    # Load randomly generated usernames and passwords
+    # for identifying ISAPI camera responses
+    try:
+        with open(data_path, 'rb') as f:
+            data = pickle.load(f)
+        if not isinstance(data, dict):
+            data = {}
+    except:
+        data  = {}
 
     
-#     #Load stored usernames and passwords for identifying camera responses
-#     if os.path.isfile(data_path):
-#         try:
-#             with open(data_path, 'rb') as f:
-#                 data = pickle.load(f)
-#             if not isinstance(data, dict):
-#                 data = {}
-#         except:
-#             data  = {}
-#     else:
-#         data = {}
+    #Ensure DEFAULT section contains all options in CAMERA_CONFIG_TEMPLATE
+    for option in CAMERA_CONFIG_TEMPLATE.keys():
+        if not config.has_option('DEFAULT', option):
+            config.set('DEFAULT', option, str(CAMERA_CONFIG_TEMPLATE[option]))
     
-#     if not config.has_option('DEFAULT','CAMERA_NAME'):
-#         config.set('DEFAULT','; ======================== ============================================')
-#         config.set('DEFAULT','; ==== DO NOT REMOVE THE DEFAULT ENTRY - ADD NEW CAMERAS BELOW IT =====')
-#         config.set('DEFAULT','; ================================ ====================================')
-#         config.set('DEFAULT','; ==  YOU CAN MODIFY VALUES IN THE DEFAULT ENTRY. THE VALUES IN THE  ==')
-#         config.set('DEFAULT','; ==  DEFAULT ENTRY WILL BE USED WHERE PARAMETERS ARE NOT SPECIFIED  ==')
-#         config.set('DEFAULT','; ==  IN ANY OF THE OTHER ENTRIES BELOW IT.                          ==')
-#         config.set('DEFAULT','; ===                                                               ===')
-#         config.set('DEFAULT','; ==  !! ATTENTION: THE SECTION NAMES SHOULD BE USED AS A GUID       ==')
-#         config.set('DEFAULT','; ==                THAT SHOULD NOT BE REUSED FOR OTHER CAMERAS.     ==')
-#         config.set('DEFAULT','; ===================================================================== \n\n')
-#         config.set('DEFAULT','CAMERA_NAME','')
-
-#     if not config.has_option('DEFAULT','CAMERA_ENABLED'):
-#         config.set('DEFAULT','CAMERA_ENABLED','True')
-
         
-#     if not config.has_option('DEFAULT','CAMERA_DESCRIPTION'):
-#         config.set('DEFAULT','CAMERA_DESCRIPTION','')
-
-
-#     if not config.has_option('DEFAULT','CAMERA_TECH_NOTES'):
-#         config.set('DEFAULT','CAMERA_TECH_NOTES','')
-
-        
-#     if not config.has_option('DEFAULT','CAMERA_SITE_NOTES'):
-#         config.set('DEFAULT','CAMERA_SITE_NOTES','')
-       
-
-#     if not config.has_option('DEFAULT','CAMERA_LATITUDE'):
-#         config.set('DEFAULT','CAMERA_LATITUDE','0')
-
-        
-#     if not config.has_option('DEFAULT','CAMERA_LONGITUDE'):
-#         config.set('DEFAULT','CAMERA_LONGITUDE','0')
-        
-# #-----
-#     if not config.has_option('DEFAULT','CAMERA_MANUFACTURER'):
-#         config.set('DEFAULT','\n\n; Camera model and series')
-#         config.set('DEFAULT','CAMERA_MANUFACTURER','')
-
-
-#     if not config.has_option('DEFAULT','CAMERA_MODEL_SERIES'):
-#         config.set('DEFAULT','CAMERA_MODEL_SERIES','')
-
-# #-----
-#     if not config.has_option('DEFAULT','CAMERA_ADDRESS'):
-#         config.set('DEFAULT','\n\n; Access to camera')
-#         config.set('DEFAULT','CAMERA_ADDRESS','')  
-
-
-#     if not config.has_option('DEFAULT','CAMERA_PORT'):
-#         config.set('DEFAULT','CAMERA_PORT','') 
-
-        
-#     if not config.has_option('DEFAULT','CAMERA_USERNAME'):
-#         config.set('DEFAULT','CAMERA_USERNAME','') 
-
-
-#     if not config.has_option('DEFAULT','CAMERA_PASSWORD'):
-#         config.set('DEFAULT','CAMERA_PASSWORD','') 
-
-#     if not config.has_option('DEFAULT','CAMERA_CHANNEL_NUMBER'):
-#         config.set('DEFAULT','CAMERA_CHANNEL_NUMBER','1') 
-
-# #----
-#     if not config.has_option('DEFAULT','REPLY_TO_LOCAL_IP'):
-#         config.set('DEFAULT','\n\n; Set camera to reply to host\'s local network ip,\n;  alternatively the specified public address will be used.')
-#         config.set('DEFAULT','REPLY_TO_LOCAL_IP','False') 
-
-# #----
-#     if not config.has_option('DEFAULT','ENABLE_EMAIL_NOTIFICATIONS'):
-#         config.set('DEFAULT','\n\n; Configure to accept email notifications from camera')
-#         config.set('DEFAULT','ENABLE_EMAIL_NOTIFICATIONS','False') 
-
-
-#     if not config.has_option('DEFAULT','CAMERA_EMAIL_ADDRESS'):
-#         config.set('DEFAULT','CAMERA_EMAIL_ADDRESS','') 
-
-
-#     if not config.has_option('DEFAULT','CAMERA_EMAIL_TEMPLATE'):
-#         config.set('DEFAULT','CAMERA_EMAIL_TEMPLATE','') 
-
-# #----
-#     if not config.has_option('DEFAULT','ENABLE_WEBHOOK_NOTIFICATIONS'):
-#         config.set('DEFAULT','\n\n; Configure camera to send HTTP notifications')
-#         config.set('DEFAULT','ENABLE_WEBHOOK_NOTIFICATIONS','False') 
-# #----
-#     if not config.has_option('DEFAULT','ENABLE_HTTP_API_NOTIFICATIONS'):
-#         config.set('DEFAULT','\n\n; Configure camera to send HTTP notifications')
-#         config.set('DEFAULT','ENABLE_HTTP_API_NOTIFICATIONS','False') 
-
-# #----
-#     if not config.has_option('DEFAULT','ENABLE_FTP_NOTIFICATIONS'):
-#         config.set('DEFAULT','\n\n; Configure camera to send FTP notifications')
-#         config.set('DEFAULT','ENABLE_FTP_NOTIFICATIONS','False')
-
-#     if not config.has_option('DEFAULT','FTP_IMAGES_KEEP_TIME'):
-#         config.set('DEFAULT','\n\n; Configure camera to send FTP notifications')
-#         config.set('DEFAULT',';  FTP_IMAGES_KEEP_TIME in DD:HH:MM,\n;  TO DISABLE: set to 00:00:00 or leave blank')
-#         config.set('DEFAULT','FTP_IMAGES_KEEP_TIME','00:08:00')
-
-#         config.set('DEFAULT','\n\n; ==== ================================================================')
-#         config.set('DEFAULT','; ====  ADD INDIVIDUAL CAMERAS BELOW DEFAULT SECTION               ====')
-#         config.set('DEFAULT','; ====                                                             == =')
-#         config.set('DEFAULT','; ====  !! ATTENTION: THE SECTION NAMES SHOULD BE USED AS A GUID   ====')
-#         config.set('DEFAULT','; ====                THAT SHOULD NOT BE REUSED FOR OTHER CAMERAS. ====')
-#         config.set('DEFAULT','; ===== ===============================================================\n\n')
-
-        
-#     sections = config.sections()
-#     cameras = {}
-#     camera_usernames = {}
-#     camera_emails = {}
+    sections = config.sections()
+    cameras = {}
+    isapi_response_username_index = {}
+    email_index = {}
     
-#     new_data = {}
-#     for section in sections:
-#         new_camera = CAMERA_CONFIG_TEMPLATE.copy()
-#         new_camera.update({'STATUS': 'UPDATING'})
-#         for key in CAMERA_CONFIG_TEMPLATE:
-#             if config.has_option(section,key):
-#                 if isinstance(CAMERA_CONFIG_TEMPLATE[key],bool):
-#                     new_camera[key] = str2bool(config[section][key])
-#                 elif isinstance(CAMERA_CONFIG_TEMPLATE[key],int):
-#                     new_camera[key] = int(config[section][key])        
-#                 else:
-#                     new_camera[key] = config[section][key]
-#         new_camera['FTP_IMAGES_KEEP_TIME'] = time2seconds(new_camera['FTP_IMAGES_KEEP_TIME'])
-#         try:
-#             new_camera['CAMERA_PASSWORD'] = decrypt(new_camera['CAMERA_PASSWORD'])
-#         except:
-#             if new_camera['CAMERA_PASSWORD'].strip() != '':
-#                 try:
-#                     config[section]['CAMERA_PASSWORD'] = encrypt(new_camera['CAMERA_PASSWORD'])
-#                 except:
-#                     pass
+    new_data = {}
+    for section in sections:
+        new_camera = CAMERA_CONFIG_TEMPLATE.copy()
+        new_camera.update({'ISAPI_STATUS': ''})
+        for key in CAMERA_CONFIG_TEMPLATE:
+            if config.has_option(section,key):
+                if isinstance(CAMERA_CONFIG_TEMPLATE[key],bool):
+                    new_camera[key] = str2bool(config[section][key])
+                elif isinstance(CAMERA_CONFIG_TEMPLATE[key],int):
+                    new_camera[key] = int(config[section][key])    
+                elif isinstance(CAMERA_CONFIG_TEMPLATE[key],float):
+                    new_camera[key] = float(config[section][key])
+                else:
+                    new_camera[key] = config[section][key]
+        new_camera['IMAGES_KEEP_TIME'] = time2seconds(new_camera['IMAGES_KEEP_TIME'])
+        new_camera['RTSP_REC_ON_EVENT_TYPE'] = csv2list(new_camera['RTSP_REC_ON_EVENT_TYPE'])
         
-#         if section in data.keys():
-#             response_username = data[section].get('USERNAME', generate_code(size=32, chars=string.ascii_letters))
-#             new_camera.update({'RESPONSE_PASSWORD': data[section].get('PASSWORD', generate_code(size=32, chars=string.ascii_letters))})
-#         else:
-#             while True:
-#                 #Generate new username and ensure it is unique
-#                 response_username = generate_code(size=32, chars=string.ascii_letters)
-#                 not_found_in_data = True
-#                 for key in data.keys():
-#                         if response_username == data[key].get('USERNAME', None):
-#                             not_found_in_data = False
-#                 if response_username not in camera_usernames.keys() and not_found_in_data:
-#                     break
-#             new_camera.update({'RESPONSE_PASSWORD': generate_code(size=32, chars=string.ascii_letters)})
+        if new_camera['RTSP_RECORDING_ENABLED']:
+            rtsp_url =  'rtsp://'
+            rtsp_url +=  f'{new_camera["USERNAME"]}:{new_camera["PASSWORD"]}@'
+            rtsp_url +=  f'{new_camera["ADDRESS"].strip("/")}:{new_camera["RTSP_PORT"]}'
+            rtsp_url +=  f'/{new_camera["RTSP_URL_PATH"].strip("/")}'
+            new_camera.update({'RTSP_FULL_URL':rtsp_url})
+        
+        if section in data.keys():
+            new_camera.update({'ISAPI_RESPONSE_USERNAME': data[section].get('ISAPI_RESPONSE_USERNAME', generate_code(size=32, chars=string.ascii_letters))})
+            new_camera.update({'ISAPI_RESPONSE_PASSWORD': data[section].get('ISAPI_RESPONSE_PASSWORD', generate_code(size=32, chars=string.ascii_letters))})
+        else:
+            while True:
+                #Generate new isapi_response_username and ensure it is unique
+                new_camera.update({'ISAPI_RESPONSE_USERNAME': generate_code(size=32, chars=string.ascii_letters)})
+                not_found_in_data = True
+                for key in data.keys():
+                        if new_camera['ISAPI_RESPONSE_USERNAME'] == data[key].get('ISAPI_RESPONSE_USERNAME', None):
+                            not_found_in_data = False
+                if new_camera['ISAPI_RESPONSE_USERNAME'] not in isapi_response_username_index.keys() and not_found_in_data:
+                    break
+            new_camera.update({'ISAPI_RESPONSE_PASSWORD': generate_code(size=32, chars=string.ascii_letters)})
             
+        new_data.update({section:{'ISAPI_RESPONSE_USERNAME': new_camera['ISAPI_RESPONSE_USERNAME'],
+                                  'ISAPI_RESPONSE_PASSWORD': new_camera['ISAPI_RESPONSE_PASSWORD']}})
         
-#         new_data.update({section:{'USERNAME': response_username,
-#                                   'PASSWORD': new_camera['RESPONSE_PASSWORD']}})
+        cameras.update({section:new_camera})
         
-#         cameras.update({section:new_camera})
-#         camera_usernames.update({response_username:section})
-#         if is_email_address(new_camera['CAMERA_EMAIL_ADDRESS']):
-#             _camera_email_key = f'{new_camera["CAMERA_EMAIL_ADDRESS"]}:{new_camera["CAMERA_CHANNEL_NUMBER"]}'.lower()
-#             if _camera_email_key not in camera_emails.keys():
-#                 camera_emails.update({_camera_email_key:section})
-#             else:
-#                 logger.warning(f'Duplicate camera email addresses in cameras.ini. Ignoring email address: {new_camera["CAMERA_EMAIL_ADDRESS"]} with channel: {new_camera["CAMERA_CHANNEL_NUMBER"]} for camera id: {section}')
+        if new_camera['ISAPI_ENABLED']:
+            isapi_response_username_index.update({new_camera['ISAPI_RESPONSE_USERNAME']:section})
+        
+        if is_email_address(new_camera['EMAIL_ADDRESS'].lower()) and new_camera['CAMERA_ENABLED']:
+            email_index_item = email_index.get(new_camera['EMAIL_ADDRESS'].lower(),{'EMAIL_TEMPLATE':new_camera['EMAIL_TEMPLATE'], 'CHANNEL':{}})
+            if new_camera["CHANNEL_NUMBER"] not in email_index_item['CHANNEL'].keys():
+                email_index_item['CHANNEL'].update({new_camera["CHANNEL_NUMBER"]:section})
+            else:
+                logger.error(f'[cameras.ini] Ignoring duplicate channel ID for same email address: {new_camera["CAMERA_NAME"]} in SECTION: {section}')
+            email_index.update({new_camera['EMAIL_ADDRESS'].lower():email_index_item})
+        else:
+            logger.debug(f'[cameras.ini] No valid email address for CAMERA_NAME: {new_camera["CAMERA_NAME"]} in SECTION: {section}')
+            
+    try:
+        with open(data_path, 'wb') as f:
+            pickle.dump(new_data, f)
+    except Exception as ex1:
+        logger.error('Error saving camera_data.dat ' + str(ex1))
     
-#     try:
-#         with open(data_path, 'wb') as f:
-#             pickle.dump(new_data, f)
-#     except Exception as ex1:
-#         logger.error('Error saving camera_data.dat ' + str(ex1))
+    try:
+        with open(os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'cameras.ini'), 'w') as configfile:
+            config.write(configfile)
+    except Exception as ex2:
+        logger.error('Error saving cameras.ini ' + str(ex2))
     
-#     with open(os.path.join(CONFIG['CONFIG_PATH'] , 'cameras.ini'), 'w') as configfile:
-#         config.write(configfile)
-    
-#     CONFIG['CAMERAS'] = cameras
-#     CONFIG['CAMERA_USERNAMES'] = camera_usernames
-#     CONFIG['CAMERA_EMAILS'] = camera_emails
- 
+    CONFIG['CAMERAS']['CONFIGS'] = cameras.copy()
+    CONFIG['CAMERAS']['ISAPI_RESPONSE_USERNAME_INDEX'] = isapi_response_username_index.copy()
+    CONFIG['CAMERAS']['EMAIL_INDEX'] = email_index.copy()
 
-def reload_config(online_reload = False):
-    #load_camera_config()
-    load_NotificationConfig(online_reload)
-    load_CameraClusterConfigs(online_reload)
-    
-    if CONFIG['SMTP_ENABLED']:
-        load_email_templates(online_reload)
-        load_unregistered_camera_email_senders(online_reload)
         
-    if CONFIG['DEEPSTACK_ENABLED']:
-        load_DeepStackCameraProfiles(online_reload)
 
     
 def load_NotificationConfig(online_reload=False):
     global CONFIG
     UnverifiedNotificationConfigs = []
-    path = os.path.join(CONFIG['CONFIG_PATH'] ,'notifications.ini')
+    path = os.path.join(CONFIG['PATHS']['CONFIG_PATH'] ,'notifications.ini')
     logger.info(f'Loading telegram group notifications from {path}')
     #Check if the notifications.ini files exists, if not, create it and include comments
     try:
@@ -874,18 +735,14 @@ def load_NotificationConfig(online_reload=False):
             return
         else:
             sys.exit(0)
-        
+            
     config = configparser.ConfigParser()
     try:
         config.read(path)
     except Exception as ex:
         msg = f'Error loading telegram group notifications from {path}\n{str(ex)}'
-        logger.critical(msg)
-        if online_reload:
-            input(msg + '\n(Press enter to continue...)')
-            return
-        else:
-            raise OSError(msg)
+        logger.error(msg)
+
     sections = config.sections()
     
     for section in sections:
@@ -901,7 +758,9 @@ def load_NotificationConfig(online_reload=False):
         new_notification['MSG_EXPIRY_TIME'] = time2seconds(new_notification['MSG_EXPIRY_TIME'])
         UnverifiedNotificationConfigs.append(new_notification)
     try:
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
     except:
         loop = asyncio.new_event_loop()
     CONFIG['NOTIFICATIONS'] = loop.run_until_complete(verify_chat_ids(UnverifiedNotificationConfigs))
@@ -927,10 +786,11 @@ def load_NotificationConfig(online_reload=False):
                 logger.info(msg)
     return
 
+
 def load_DeepStackCameraProfiles(online_reload=False):
     global CONFIG
     
-    config_path = os.path.join(CONFIG['CONFIG_PATH'],'deepstack_camera_profiles.ini')
+    config_path = os.path.join(CONFIG['PATHS']['CONFIG_PATH'],'deepstack_camera_profiles.ini')
     
     try:
         if not os.path.isfile(config_path):
@@ -949,13 +809,8 @@ def load_DeepStackCameraProfiles(online_reload=False):
     try:
         config.read(config_path)
     except Exception as ex:
-        msg = 'Error reading deepstack_camera_profiles.ini ' + str(ex) 
-        logger.critical(msg)
-        input(msg + '\n\nPress enter to continue...')
-        if online_reload:
-            return
-        else:
-            sys.exit(0)
+        logger.error('Error reading deepstack_camera_profiles.ini ' + str(ex))
+
     
     camera_profiles = {}       #Key->Section name:Value->dict
     camera_name_index = {}     #Key->Camera name:Value->list of sections
@@ -1012,10 +867,12 @@ def load_DeepStackCameraProfiles(online_reload=False):
                                 camera_name_index[name.lower()].append(section.lower())
                         else:
                             camera_name_index[name.lower()] = [section.lower()]
-    
-    CONFIG['DEEPSTACK_CAMERA_PROFILES']       = camera_profiles.copy()
-    CONFIG['DEEPSTACK_CAMERA_NAME_INDEX']     = camera_name_index.copy()
-    CONFIG['DEEPSTACK_ALL_CAMERAS_INDEX']     = all_cameras_index.copy()
+                            
+
+    CONFIG['DEEPSTACK']['CAMERA_PROFILES']   = camera_profiles.copy()
+    CONFIG['DEEPSTACK']['CAMERA_NAME_INDEX'] = camera_name_index.copy()
+    CONFIG['DEEPSTACK']['ALL_CAMERAS_INDEX'] = all_cameras_index.copy()
+
 
 def load_CameraClusterConfigs(online_reload=False):
     global CONFIG
@@ -1025,8 +882,8 @@ def load_CameraClusterConfigs(online_reload=False):
     #Check if the example_camera_cluster_config.ini files exists, if not, create it and include comments
     #example_camera_cluster_config.ini will not be read
     try:
-        if not os.path.isfile(os.path.join(CONFIG['CAMERA_CLUSTER_PATH'],'example_camera_cluster_config.ini')):
-            with open(os.path.join(CONFIG['CAMERA_CLUSTER_PATH'],'example_camera_cluster_config.ini'), 'w') as f: 
+        if not os.path.isfile(os.path.join(CONFIG['PATHS']['CAMERA_CLUSTER_PATH'],'example_camera_cluster_config.ini')):
+            with open(os.path.join(CONFIG['PATHS']['CAMERA_CLUSTER_PATH'],'example_camera_cluster_config.ini'), 'w') as f: 
                 f.write(DEFAULT_CAMERACLUSTER_CONFIG) 
     except Exception as ex:
         msg = 'Error creating example_camera_cluster_config.ini\n'+ str(ex) + '\n\nPress enter to continue...'
@@ -1038,7 +895,7 @@ def load_CameraClusterConfigs(online_reload=False):
     
     config = configparser.ConfigParser()
     
-    for dirpath, dirnames, files in os.walk(CONFIG['CAMERA_CLUSTER_PATH']):
+    for dirpath, dirnames, files in os.walk(CONFIG['PATHS']['CAMERA_CLUSTER_PATH']):
         files = [ file for file in files if file.endswith('.ini') ]
         try:
             files.remove('example_camera_cluster_config.ini')
@@ -1085,8 +942,8 @@ def load_CameraClusterConfigs(online_reload=False):
 
 def load_email_templates(online_reload=False):
     global CONFIG
-    logger.info(f'Loading email_templates.ini from {CONFIG["CONFIG_PATH"]}')
-    template_path = os.path.join(CONFIG['CONFIG_PATH'] , 'email_templates.ini')
+    logger.info(f'Loading email_templates.ini from {CONFIG["PATHS"]["CONFIG_PATH"]}')
+    template_path = os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'email_templates.ini')
 
     #Load email_templates.ini config file 
     config = configparser.ConfigParser(allow_no_value=True)
@@ -1225,13 +1082,12 @@ def load_email_templates(online_reload=False):
     with open(template_path, 'w') as f:
         config.write(f)
     
-    CONFIG['CAMERA_EMAIL_TEMPLATES'] = email_templates                    
-
+    CONFIG['SMTP']['EMAIL_TEMPLATES'] = email_templates.copy()
 
 def load_unregistered_camera_email_senders(online_reload=False):
     global CONFIG
-    logger.info(f'Loading unregisterd_camera_email_senders.ini from {CONFIG["CONFIG_PATH"]}')
-    file_path = os.path.join(CONFIG['CONFIG_PATH'] , 'unregistered_camera_email_senders.ini')
+    logger.info(f'Loading unregisterd_camera_email_senders.ini from {CONFIG["PATHS"]["CONFIG_PATH"]}')
+    file_path = os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'unregistered_camera_email_senders.ini')
 
     #Load email_templates.ini config file 
     config = configparser.ConfigParser(allow_no_value=True)
@@ -1281,7 +1137,7 @@ def load_unregistered_camera_email_senders(online_reload=False):
                     email_addesses.update({email:template})
     with open(file_path, 'w') as f:
         config.write(f)
-    CONFIG['UNREGISTERED_EMAIL_TEMPLATES'] = email_addesses    
+    CONFIG['UNREGISTERED_CAMERAS']['EMAIL_INDEX'] = email_addesses.copy()
 
 async def get_bot_username(token):
     try:
@@ -1313,8 +1169,9 @@ async def verify_chat_id_worker(conf, flood_controller):
                     'BOT_USERNAME':'', 
                     'GROUP_NAME':''
                     }
-    bot = TelegramBot(token=conf['BOT_TOKEN'])
+    
     try:
+        bot = TelegramBot(token=conf['BOT_TOKEN'])
         await flood_controller.delay(token=conf['BOT_TOKEN'], 
                                      chat_id=conf['BOT_CHAT_ID'], 
                                      is_group = False, 
@@ -1341,13 +1198,21 @@ async def verify_chat_id_worker(conf, flood_controller):
         verification['ACTIVE'] = False
         verification['REASON'] = 'TOKEN UNAUTHORISED'
     except (ClientConnectorError, NetworkError) as ex:
-        logger.critical('verify_chat_id_worker(): '+ str(ex))
+        logger.error('verify_chat_id_worker(): '+ str(ex))
         verification['ACTIVE'] = True
         verification['REASON'] = 'Connection error, loaded as ACTIVE'
         conf['LIVE_VERIFICATION'] = verification
+    except Exception as ex2:
+        logger.critical('verify_chat_id_worker(): '+ str(ex2))
+        verification['ACTIVE'] = True
+        verification['REASON'] = 'Unknown error, loaded as ACTIVE'
+        conf['LIVE_VERIFICATION'] = verification
     finally:
-        if bot._session:
-            await bot._session.close()
+        try:
+            if bot._session:
+                await bot._session.close()
+        except:
+            pass
 
     conf['LIVE_VERIFICATION'] = verification
     return conf    
@@ -1356,20 +1221,20 @@ def get_status_message(config, log_level):
     # status_msg  = 'SERVICES:\n'
     # status_msg += '-----------------'
     status_msg = ''
-    if config['SMTP_ENABLED']:
-        status_msg +=     f'\n[RUNNING] SMTP Server: {config["HOST_NAME"]}:{config["SMTP_PORT_NUMBER"]}'
+    if config['SMTP']['ENABLED']:
+        status_msg +=     f'\n[RUNNING] SMTP Server: {config["SERVER"]["HOST_NAME"]}:{config["SMTP"]["PORT"]}'
     
-    if config['HTTP_ENABLED']:
-        status_msg +=     f'\n[RUNNING] HTTP Server: {config["HOST_NAME"]}:{config["HTTP_PORT_NUMBER"]}'
+    if config['HTTP']['ENABLED']:
+        status_msg +=     f'\n[RUNNING] HTTP Server: {config["SERVER"]["HOST_NAME"]}:{config["HTTP"]["PORT"]}'
 
-    if config['DEEPSTACK_ENABLED']:
+    if config['DEEPSTACK']['ENABLED']:
         status_msg += '\n[RUNNING] DeepStack Client'  
     
     status_msg += '\n[RUNNING] Camera Notification Recorder'
     status_msg += '\n[RUNNING] Telegram Camera-Event Notifier'        
 
-    if config['LOG_NOTIFIER_ENABLED']:
-        if config['LOG_NOTIFIER_TOKEN'] and config['LOG_NOTIFIER_CHAT_IDS']:
+    if config['TELEGRAM']['ENABLED']:
+        if config['TELEGRAM']['TOKEN'] and config['TELEGRAM']['CHAT_ID']:
             status_msg += '\n[RUNNING] Telegram Log Notifier'
         else:
             status_msg += '\n[ ERROR ] Telegram Log Notifier: Invalid token or chat id'
@@ -1390,7 +1255,7 @@ def get_telegram_group_message():
                                conf["LIVE_VERIFICATION"]["BOT_USERNAME"],
                                conf["LIVE_VERIFICATION"]["GROUP_NAME"]])
     table_instance = SingleTable(data_table, 'Enabled Telegram Camera Notifications')
-    return f'\n {CONFIG["SERVER_LONG_NAME"]}\n\n' + str(table_instance.table) + '\n(Press ESC to close)'
+    return f'\n {CONFIG["SERVER"]["SERVER_LONG_NAME"]}\n\n' + str(table_instance.table) + '\n(Press ESC to close)'
 
 
 def show_telegram_groups_status():
@@ -1428,7 +1293,7 @@ def show_live_log(listener, stream_handler, log_level):
         log_msg = 'off'
     else:
         log_msg = 'on'
-    print(f'{CONFIG["SERVER_LONG_NAME"]}\nLIVE LOG OUTPUT [debug {log_msg}] - Press ESC to close\n')
+    print(f'{CONFIG["SERVER"]["SERVER_LONG_NAME"]}\nLIVE LOG OUTPUT [debug {log_msg}] - Press ESC to close\n')
     listener.addHandler(stream_handler)
     try:
         wait_for_esc()
@@ -1444,7 +1309,7 @@ def wait_for_esc():
 def send_test_notification(listener, stream_handler, log_level, OutgoingQueues, History={}):                    
 
     try:
-        with open(os.path.join(CONFIG['EXE_PATH'],'deepstack_test_image.jpg'),'rb') as f:
+        with open(os.path.join(CONFIG['PATHS']['EXE_PATH'],'deepstack_test_image.jpg'),'rb') as f:
             image = f.read()
         images = [{'type': '.jpg', 'payload': image}]
     except:
@@ -1528,40 +1393,44 @@ def main():
     try:
         global CONFIG
         print('STARTING ON PATROL SERVER V' + str(__version__) + ' (PID:' + xstr(os.getpid()) + ')\nplease wait...')
-    
-        #Set path variables
-        if getattr(sys, 'frozen', False):
-            CONFIG['EXE_PATH'] = os.path.dirname(sys.executable)
-        elif __file__:
-            CONFIG['EXE_PATH'] = os.path.dirname(__file__)  
-            
-        CONFIG['DATA_PATH'] = os.path.join(CONFIG['EXE_PATH'],'data')
-        CONFIG['CONFIG_PATH'] = os.path.join(CONFIG['DATA_PATH'],'config')
-        CONFIG['LOG_PATH'] = os.path.join(CONFIG['DATA_PATH'],'log')
-        CONFIG['CAMERA_CLUSTER_PATH'] = os.path.join(CONFIG['CONFIG_PATH'],'camera_clusters')
-        
-        LOCKFILE = os.path.join(CONFIG['EXE_PATH'] , str(os.path.splitext(__file__)[0]) + '.lock')
-        DBFILE   = os.path.join(CONFIG['DATA_PATH'], 'data.sqlite') 
-        
-        #Create all sub-directories if not exists
-        if not os.path.exists(CONFIG['DATA_PATH']):
-            os.makedirs(CONFIG['DATA_PATH'])
-        if not os.path.exists(CONFIG['CONFIG_PATH'] ):
-            os.makedirs(CONFIG['CONFIG_PATH'] ) 
-        if not os.path.exists(CONFIG['LOG_PATH'] ):
-            os.makedirs(CONFIG['LOG_PATH'] )     
-        if not os.path.exists(CONFIG['CAMERA_CLUSTER_PATH']):
-            os.makedirs(CONFIG['CAMERA_CLUSTER_PATH'])    
-        
-        
+
         #Set up commandline parse arguments
         parser = argparse.ArgumentParser()
         parser.add_argument('-k','--kill'    , action='store_true',  help='Terminate the running instance and remove the lock file')
         parser.add_argument('-f','--force'   , action='store_true',  help='Kill running instance in lock file and start new')    
         parser.add_argument('-d','--debug'   , action='store_true',  help='Output debug')
+        parser.add_argument('-p', '--data_path', nargs=1,  default = None, help='Specify alternative data storage path')
         
         #Parse the commandline arguments
         args, unknown_args = parser.parse_known_args()
+    
+        #Set path variables
+        if getattr(sys, 'frozen', False):
+            CONFIG['PATHS']['EXE_PATH'] = os.path.dirname(sys.executable)
+        elif __file__:
+            CONFIG['PATHS']['EXE_PATH'] = os.path.dirname(__file__)  
+        
+        if args.data_path:    
+            CONFIG['PATHS']['DATA_PATH'] = args.data_path[0]
+        else:
+            CONFIG['PATHS']['DATA_PATH'] = os.path.join(CONFIG['PATHS']['EXE_PATH'],'data')
+        CONFIG['PATHS']['CONFIG_PATH'] = os.path.join(CONFIG['PATHS']['DATA_PATH'],'config')
+        CONFIG['PATHS']['LOG_PATH'] = os.path.join(CONFIG['PATHS']['DATA_PATH'],'log')
+        CONFIG['PATHS']['CAMERA_CLUSTER_PATH'] = os.path.join(CONFIG['PATHS']['CONFIG_PATH'],'camera_clusters')
+        
+        LOCKFILE = os.path.join(CONFIG['PATHS']['EXE_PATH'] , str(os.path.splitext(__file__)[0]) + '.lock')
+        DBFILE   = os.path.join(CONFIG['PATHS']['DATA_PATH'], 'data.sqlite') 
+        
+        #Create all sub-directories if not exists
+        if not os.path.exists(CONFIG['PATHS']['DATA_PATH']):
+            os.makedirs(CONFIG['PATHS']['DATA_PATH'])
+        if not os.path.exists(CONFIG['PATHS']['CONFIG_PATH'] ):
+            os.makedirs(CONFIG['PATHS']['CONFIG_PATH'] ) 
+        if not os.path.exists(CONFIG['PATHS']['LOG_PATH'] ):
+            os.makedirs(CONFIG['PATHS']['LOG_PATH'] )     
+        if not os.path.exists(CONFIG['PATHS']['CAMERA_CLUSTER_PATH']):
+            os.makedirs(CONFIG['PATHS']['CAMERA_CLUSTER_PATH'])    
+        
     
         #Process the --kill [-k] and --force [-f] commandline flags
         if args.kill:
@@ -1576,11 +1445,13 @@ def main():
             log_level = logging.DEBUG
         else:
             log_level = logging.INFO
-            remove_all_stderr_logging_handlers()
-
+            #remove_all_stderr_logging_handlers()
+        
+        #log_level = logging.DEBUG #DMT REMOVE DEV TEST
+        
         #Set up a logging file_handler
         log_filename = 'events.log'
-        log_file_path = os.path.join(CONFIG['LOG_PATH'], log_filename)
+        log_file_path = os.path.join(CONFIG['PATHS']['LOG_PATH'], log_filename)
         all_log_handlers = []
         log_queue = queue.SimpleQueue()
         f_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
@@ -1620,7 +1491,9 @@ def main():
         logger.addHandler(queue_handler)
         all_log_handlers.append(logger)
         
-        if not os.path.isfile(os.path.join(CONFIG['CONFIG_PATH'], 'config.ini')):
+        logger.info(f'Using data storage location: {str(CONFIG["PATHS"]["DATA_PATH"])}')
+        
+        if not os.path.isfile(os.path.join(CONFIG['PATHS']['CONFIG_PATH'], 'config.ini')):
             new_config = True
         else:
             new_config = False
@@ -1628,94 +1501,75 @@ def main():
         load_config()
         
         #Check/Create image path
-        if not os.path.exists(CONFIG['IMAGES_SAVE_PATH']):
+        if not os.path.exists(CONFIG['PATHS']['IMAGES_SAVE_PATH']):
             try:
-                os.makedirs(CONFIG['IMAGES_SAVE_PATH'])
+                os.makedirs(CONFIG['PATHS']['IMAGES_SAVE_PATH'])
             except Exception as exp:
-                logger.critical(f'Cannot create images folder at {CONFIG["IMAGES_SAVE_PATH"]}\n{str(exp)}')
+                logger.critical(f'Cannot create images folder at {CONFIG["PATHS"]["IMAGES_SAVE_PATH"]}\n{str(exp)}')
                 
         if new_config:
-            logger.info(f'Default config.ini generated at {CONFIG["CONFIG_PATH"]}. Terminating application.')
-            msg = '\nDefault config.ini file generated\n'+os.path.join(CONFIG['CONFIG_PATH'], 'config.ini')+'\n\nPlease edit config.ini and restart the program. \n\nPress enter to close...\n'
+            logger.info(f'Default config.ini generated at {CONFIG["PATHS"]["CONFIG_PATH"]}. Terminating application.')
+            msg = '\nDefault config.ini file generated\n'+os.path.join(CONFIG['PATHS']['CONFIG_PATH'], 'config.ini')+'\n\nPlease edit config.ini and restart the program. \n\nPress enter to close...\n'
             PromptUtils(Screen()).enter_to_continue(message=msg)
             return        
-        
-        if CONFIG['LOG_NOTIFIER_ENABLED'] and CONFIG['LOG_NOTIFIER_TOKEN'] and CONFIG['LOG_NOTIFIER_CHAT_IDS']:
-            telegram_handler = python_telegram_logger.Handler(token    = CONFIG['LOG_NOTIFIER_TOKEN'],
-                                                              chat_ids = CONFIG['LOG_NOTIFIER_CHAT_IDS'])
+
+        if CONFIG['TELEGRAM']['ENABLED'] and CONFIG['TELEGRAM']['TOKEN'] and CONFIG['TELEGRAM']['CHAT_ID']:
+            telegram_handler = python_telegram_logger.Handler(token    = CONFIG['TELEGRAM']['TOKEN'],
+                                                              chat_ids = CONFIG['TELEGRAM']['CHAT_ID'])
             telegram_handler.setLevel(logging.ERROR)
-            FMT = f'<b>%(levelname)s</b>\n<i>{CONFIG["LOG_NOTIFIER_SENDER_NAME"]}</i>\n<pre>%(message)s</pre> %(exc)s'
+            FMT = f'<b>%(levelname)s</b>\n<i>{CONFIG["TELEGRAM"]["SENDER_NAME"]}</i>\n<pre>%(message)s</pre> %(exc)s'
             telegram_formatter = python_telegram_logger.HTMLFormatter(FMT)
             telegram_handler.setFormatter(telegram_formatter)
             listener.addHandler(telegram_handler)
         
-        DeepStackInQueue        = queue.SimpleQueue()#maxsize=1000)
         RecorderInQueue         = queue.SimpleQueue()#maxsize=1000)
         NotifierInQueue         = queue.SimpleQueue()#maxsize=1000)
-        DirectMessageInQueue    = queue.SimpleQueue()#maxsize=1000)
         threads                 = []
         DBconn                  = Sqlite3Worker(DBFILE, row_factory=sqlite3.Row) #Starts a thread, need to .close() again
     
                    
         try:
-            if CONFIG['SMTP_ENABLED']:
+            if CONFIG['SMTP']['ENABLED']:
                 from EmailServer import SMTPServer as SMTPServer_
-                if CONFIG['DEEPSTACK_ENABLED']:
-                    # Pass output to DeepStack
-                    SMTPServer_OutgoingQueues = {'DeepStackInQueue':DeepStackInQueue}
-                else:
-                    # Pass output directly to Notification Recorder
-                    SMTPServer_OutgoingQueues = {'RecorderInQueue': RecorderInQueue}
-                SMTPServer_Thread = SMTPServer_(Hostname          = CONFIG['HOST_NAME'], 
-                                                Port              = CONFIG['SMTP_PORT_NUMBER'], 
+                SMTPServer_OutgoingQueues = {'RecorderInQueue': RecorderInQueue}
+                SMTPServer_Thread = SMTPServer_(Hostname          = CONFIG['SERVER']['HOST_NAME'], 
+                                                Port              = CONFIG['SMTP']['PORT'], 
                                                 OutgoingQueues    = SMTPServer_OutgoingQueues,
-                                                Config            = CONFIG,
-                                                OnlyAllowSentFrom = splitemails2list(CONFIG['SMTP_ONLY_ALLOW_SENT_FROM']),
-                                                Debug             = True)
+                                                Config            = CONFIG)
                 SMTPServer_Thread.start()
                 threads.append(SMTPServer_Thread)              
-            
-            if CONFIG['DEEPSTACK_ENABLED']:
-                from DeepStackClient import DeepStackClient as DeepStackClient_
-                # Always pass output to Notification recorder
-                DeepStackClient_Thread = DeepStackClient_(IncomingQueue  = DeepStackInQueue, 
-                                                          OutgoingQueues = {'RecorderInQueue':RecorderInQueue},
-                                                          Config         = CONFIG)
-                DeepStackClient_Thread.start()
-                threads.append(DeepStackClient_Thread)
-            
+           
             
             #Start Notification Recorder Service
-            NotificationRecorder_Thread = NotificationRecorder_(IncomingQueue  = RecorderInQueue, 
-                                                                OutgoingQueues = {'NotifierInQueue': NotifierInQueue}, 
-                                                                DBconn         = DBconn, 
-                                                                Config         = CONFIG)
+            NotificationRecorder_Thread = NotificationRecorder_(incoming_queue  = RecorderInQueue, 
+                                                                outgoing_queues = {'NotifierInQueue': NotifierInQueue}, 
+                                                                db_conn         = DBconn, 
+                                                                config          = CONFIG)
             NotificationRecorder_Thread.start()
             threads.append(NotificationRecorder_Thread)
             
             #Start Telegram Notifier Service
-            TelegramNotifier_Thread = TelegramNotifier_(config                   = CONFIG, 
-                                                       db_conn                   = DBconn, 
-                                                       camera_notification_queue = NotifierInQueue, 
-                                                       direct_message_queue      = DirectMessageInQueue)
+            TelegramNotifier_Thread = TelegramNotifier_(config                    = CONFIG, 
+                                                        db_conn                   = DBconn, 
+                                                        camera_notification_queue = NotifierInQueue)
             TelegramNotifier_Thread.start()
             threads.append(TelegramNotifier_Thread)
             
-            if CONFIG['HTTP_ENABLED']:
+            if CONFIG['HTTP']['ENABLED']:
                 from WebServer import WebServer as WebServer_
-                WebServer_Thread = WebServer_(host = CONFIG['HOST_NAME'],
-                                              port = CONFIG['HTTP_PORT_NUMBER'])
+                WebServer_Thread = WebServer_(host = CONFIG['SERVER']['HOST_NAME'],
+                                              port = CONFIG['HTTP']['PORT'])
                 WebServer_Thread.start()
                 threads.append(WebServer_Thread)
  
-            logger.critical(f'Server STARTED, Version {str(__version__)}, PID: {str(os.getpid())}\nSMTP Server on {CONFIG["HOST_NAME"]}:{CONFIG["SMTP_PORT_NUMBER"]}\nHTTP Monitoring on {CONFIG["HOST_NAME"]}:{CONFIG["HTTP_PORT_NUMBER"]}')
+            logger.critical(f'Server STARTED, Version {str(__version__)}, PID: {str(os.getpid())}\nSMTP Server on {CONFIG["SERVER"]["HOST_NAME"]}:{CONFIG["SMTP"]["PORT"]}\nHTTP Monitoring on {CONFIG["SERVER"]["HOST_NAME"]}:{CONFIG["HTTP"]["PORT"]}')
             
             test_notification_history = {}
-            
+
             while True:
                 try:    
                     menu = ConsoleMenu(f'ON PATROL SERVER V{str(__version__)} BUILD:{__build__} (PID:{xstr(os.getpid())})', 
-                                       f'Server Name: {CONFIG["SERVER_LONG_NAME"]}',
+                                       f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}',
                                        prologue_text=(get_status_message(CONFIG, log_level)),
                                        exit_option_text='Shutdown Server')
                     menu.append_item(ExitItem('Reload Config'))
@@ -1733,7 +1587,7 @@ def main():
                     selection = menu.selected_option
                     
                     if selection == 0:
-                        print(f'Server Name: {CONFIG["SERVER_LONG_NAME"]}' + '\nreloading config...')
+                        print(f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}' + '\nreloading config...')
                         reload_config(online_reload=True)
                     elif selection == 1:
                         if log_level > logging.DEBUG:
@@ -1748,10 +1602,10 @@ def main():
                     elif selection == 4:
                         log_level = toggle_loglevel(all_log_handlers, log_level)
                     elif selection == 5:
-                        if PromptUtils(Screen()).confirm_answer('', message=f'Server Name: {CONFIG["SERVER_LONG_NAME"]}' + '\nAre you sure you want to shutdown the server?'):
+                        if PromptUtils(Screen()).confirm_answer('', message=f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}' + '\nAre you sure you want to shutdown the server?'):
                             break
                 except KeyboardInterrupt:
-                    if PromptUtils(Screen()).confirm_answer('', message=f'Server Name: {CONFIG["SERVER_LONG_NAME"]}' + '\nAre you sure you want to shutdown the server?'):
+                    if PromptUtils(Screen()).confirm_answer('', message=f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}' + '\nAre you sure you want to shutdown the server?'):
                         break
         finally:
             print('Please wait while the server shuts down safely...')

@@ -78,12 +78,12 @@ class DeepStackClient(threading.Thread):
     async def DeepStackQuery(self, session, min_confidence, image_data, detection_zones = [], name=''):
         data={'min_confidence': str(min_confidence),
               'image'         : image_data}
-        if self.config['DEEPSTACK_API_KEY']:
-            data['api_key'] = self.config['DEEPSTACK_API_KEY']
+        if self.config['DEEPSTACK']['API_KEY']:
+            data['api_key'] = self.config['DEEPSTACK']['API_KEY']
         labels = []
         
         try:
-            async with session.post(self.config['DEEPSTACK_URL'], data=data, timeout=90) as resp:
+            async with session.post(self.config['DEEPSTACK']['URL'], data=data, timeout=90) as resp:
                 result = await resp.json()
                 if resp.ok:
                     if result['success']:
@@ -105,11 +105,11 @@ class DeepStackClient(threading.Thread):
 
     def GetCameraProfile(self, item):
         # Check for individual camera name rules
-        if item['IPC_NAME'].lower() in self.config['DEEPSTACK_CAMERA_NAME_INDEX'].keys():
-            profile_keys = self.config['DEEPSTACK_CAMERA_NAME_INDEX'][item['IPC_NAME'].lower()]
+        if item['IPC_NAME'].lower() in self.config['DEEPSTACK']['CAMERA_NAME_INDEX'].keys():
+            profile_keys = self.config['DEEPSTACK']['CAMERA_NAME_INDEX'][item['IPC_NAME'].lower()]
             logger.debug(f'[DeepStackClient]  {str(item["IPC_NAME"])}: using profile {str(profile_keys)}')
             for key in profile_keys:
-                profile = self.config['DEEPSTACK_CAMERA_PROFILES'][key]
+                profile = self.config['DEEPSTACK']['CAMERA_PROFILES'][key]
                 #Check channel names
                 if profile['CHANNEL_NAMES']:
                     if item['CHANNEL_NAME'].lower() not in profile['CHANNEL_NAMES']:
@@ -135,12 +135,12 @@ class DeepStackClient(threading.Thread):
         #   Note: keys in DEEPSTACK_ALL_CAMERAS_INDEX are also the keys in 
         #   DEEPSTACK_CAMERA_PROFILES. The values in DEEPSTACK_ALL_CAMERAS_INDEX
         #   are a list of camera names to ignore.
-        for key in self.config['DEEPSTACK_ALL_CAMERAS_INDEX'].keys():
+        for key in self.config['DEEPSTACK']['ALL_CAMERAS_INDEX'].keys():
             #Check if camera name is excluded from wildcard
-            if item['IPC_NAME'].lower() in self.config['DEEPSTACK_ALL_CAMERAS_INDEX'][key]:
+            if item['IPC_NAME'].lower() in self.config['DEEPSTACK']['ALL_CAMERAS_INDEX'][key]:
                 continue
             
-            profile = self.config['DEEPSTACK_CAMERA_PROFILES'][key]
+            profile = self.config['DEEPSTACK']['CAMERA_PROFILES'][key]
             #Check channel names
             if profile['CHANNEL_NAMES']:
                 if item['CHANNEL_NAME'].lower() not in profile['CHANNEL_NAMES']:

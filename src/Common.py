@@ -1,4 +1,4 @@
-import os, cv2, string, re, time, asyncio, functools, logging.handlers#, threading, sys
+import os, cv2, string, re, random, time, asyncio, functools, logging.handlers#, threading, sys
 from numpy import frombuffer
 from email.utils import parseaddr as ParseEmailAddress
 
@@ -36,7 +36,14 @@ from email.utils import parseaddr as ParseEmailAddress
 #     def __del__(self):
 #         if not self.nullwriter.closed:
 #             self.nullwriter.close()
-            
+ 
+def generate_code(size=20, chars=string.ascii_letters + string.digits):
+    '''
+     Generate a random code consisting of numbers and letters 
+     without special characters.
+    '''
+    return ''.join(random.choice(chars) for _ in range(size))
+           
 def is_email_address(address):
     return bool(re.search(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', address))
 
