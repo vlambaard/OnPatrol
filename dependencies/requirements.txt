@@ -3,10 +3,9 @@ aiofiles
 aiogram==2.*
 aiohttp
 aiosmtpd
-configparser
-#console
-console-menu
-future_fstrings
+# configparser  # Built into Python 3+ standard library
+# console-menu  # DEPRECATED: Replaced with rich for Python 3.13 compatibility
+# future_fstrings  # DEPRECATED: Not needed for Python 3.13+ (f-strings are native)
 html2text
 keyboard
 packaging
@@ -16,10 +15,10 @@ pysqlite3
 python_telegram_logger
 python-dateutil
 shutup
-terminaltables
+# terminaltables  # DEPRECATED: Replaced with rich.table for Python 3.13 compatibility
 numpy
-opencv-python==4.5.5.64
+opencv-python  # UPDATED: Removed version pin for Python 3.13 compatibility
 opencv-contrib-python
 python-ffmpeg
 deepstack_sdk
-rich
+rich  # MODERN: Replaces console-menu and terminaltables

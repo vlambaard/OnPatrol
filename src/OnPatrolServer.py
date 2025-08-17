@@ -38,12 +38,16 @@ __license__   = '''The MIT License (MIT)'''
 
 from packaging import version
 
-from consolemenu import ConsoleMenu, Screen
-from consolemenu.items import ExitItem
-from consolemenu.prompt_utils import PromptUtils
-
+# MODERNIZED FOR PYTHON 3.13: Replaced consolemenu with rich library
+# from consolemenu import ConsoleMenu, Screen  # DEPRECATED: No longer compatible with Python 3.13
+# from consolemenu.items import ExitItem  # DEPRECATED: No longer compatible with Python 3.13
+# from consolemenu.prompt_utils import PromptUtils  # DEPRECATED: No longer compatible with Python 3.13
 
 from rich.console import Console
+from rich.prompt import Prompt, Confirm, IntPrompt
+from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
 # This is used to refactor from the old Console library no longer available in this version of Python
 import keyboard
 
@@ -93,13 +97,65 @@ import string
 import pickle
 import json
 
-from terminaltables import AsciiTable as SingleTable 
+# MODERNIZED FOR PYTHON 3.13: Replaced terminaltables with rich.table
+# from terminaltables import AsciiTable as SingleTable  # DEPRECATED: No longer compatible with Python 3.13
 
-#from console.utils import wait_key, cls
+# MODERNIZED FOR PYTHON 3.13: Implementing wait_key using keyboard library instead of deprecated console.utils
+# from console.utils import wait_key, cls  # DEPRECATED: console library no longer available
 
 logger = logging.getLogger('on_patrol_server')
 
+# MODERNIZED FOR PYTHON 3.13: Create rich console instance for modern output
+console = Console()
+
 #shutup.please()
+
+# MODERNIZED FOR PYTHON 3.13: Implement wait_key function using keyboard library
+def wait_key():
+    """Wait for a key press. Returns the key pressed."""
+    try:
+        import keyboard
+        while True:
+            event = keyboard.read_event()
+            if event.event_type == keyboard.KEY_DOWN:
+                return event.name
+    except ImportError:
+        # Fallback for systems without keyboard library
+        input("Press Enter to continue...")
+        return 'enter'
+
+# MODERNIZED FOR PYTHON 3.13: Helper functions to replace PromptUtils functionality with rich
+def enter_to_continue(message="Press Enter to continue..."):
+    """Replace PromptUtils().enter_to_continue() with rich implementation"""
+    console.print(Panel(message, style="yellow"))
+    input()
+
+def prompt_for_numbered_choice(choices, title="Select an option:"):
+    """Replace PromptUtils().prompt_for_numbered_choice() with rich implementation"""
+    console.print(Panel(title, style="blue"))
+    for i, choice in enumerate(choices):
+        console.print(f"  {i}. {choice}")
+    
+    while True:
+        try:
+            choice = IntPrompt.ask("Enter your choice")
+            if 0 <= choice < len(choices):
+                return choice
+            else:
+                console.print(f"[red]Please enter a number between 0 and {len(choices)-1}[/red]")
+        except KeyboardInterrupt:
+            return len(choices) - 1  # Return last option (usually Cancel)
+
+def prompt_input(prompt_text, default=None):
+    """Replace PromptUtils().input() with rich implementation"""
+    if default:
+        return Prompt.ask(prompt_text, default=default), True
+    else:
+        return Prompt.ask(prompt_text), True
+
+def confirm_answer(message, default=False):
+    """Replace PromptUtils().confirm_answer() with rich implementation"""
+    return Confirm.ask(message, default=default)
 
 SIXMONTHS = 60*60*24*182
 PASSWORD_PATTERN = '^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,32}$'
@@ -529,7 +585,8 @@ def check_pid_lock(lockfile):
             if psutil.pid_exists(lock['pid']):
                 if psutil.Process(lock['pid']).name() == lock['name']:
                     msg = 'Another instance is already running. \n  Use -f flag to kill running instance and a start new one.\n  Use -k flag to kill running instance.\n (press enter to close)'
-                    PromptUtils(Screen()).enter_to_continue(message=msg)
+                    # MODERNIZED FOR PYTHON 3.13: Using rich console instead of PromptUtils
+                    enter_to_continue(message=msg)
                     #sg.popup('\nAnother instance is already running. \n  Use -f flag to kill running instance and a start new one.\n  Use -k flag to kill running instance.\n',icon='lock_black.ico')
                     sys.exit(0)
     
@@ -737,8 +794,9 @@ def load_NotificationConfig(online_reload=False):
                 f.write(DEFAULT_NOTIFICATION_CONFIG)     
     except Exception as ex:
         logger.critical(f'Error writing default telegram group notifications to {path}\n{str(ex)}')
-        msg = f'Error writing default telegram group notifications to {path}\n{str(ex)}' + '\n\nPress enter to continue...'
-        input(msg + '\n(Press enter to continue...)')
+        msg = f'Error writing default telegram group notifications to {path}\n{str(ex)}'
+        # MODERNIZED FOR PYTHON 3.13: Using rich console for error display
+        enter_to_continue(msg)
         if online_reload:
             return
         else:
@@ -805,8 +863,9 @@ def load_DeepStackCameraProfiles(online_reload=False):
             with open(config_path, 'w') as f: 
                 f.write(DEFAULT_DEEPSTACK_CAMERA_PROFILE) 
     except Exception as ex:
-        msg = 'Error creating deepstack_camera_profiles.ini\n'+ str(ex) + '\n\nPress enter to continue...'
-        input(msg)
+        msg = 'Error creating deepstack_camera_profiles.ini\n'+ str(ex)
+        # MODERNIZED FOR PYTHON 3.13: Using rich console for error display
+        enter_to_continue(msg)
         if online_reload:
             return
         else:
@@ -894,9 +953,10 @@ def load_CameraClusterConfigs(online_reload=False):
             with open(os.path.join(CONFIG['PATHS']['CAMERA_CLUSTER_PATH'],'example_camera_cluster_config.ini'), 'w') as f: 
                 f.write(DEFAULT_CAMERACLUSTER_CONFIG) 
     except Exception as ex:
-        msg = 'Error creating example_camera_cluster_config.ini\n'+ str(ex) + '\n\nPress enter to continue...'
+        msg = 'Error creating example_camera_cluster_config.ini\n'+ str(ex)
         if online_reload:
-            input(msg)
+            # MODERNIZED FOR PYTHON 3.13: Using rich console for error display
+            enter_to_continue(msg)
             return
         else:
             sys.exit(0)
@@ -1253,22 +1313,39 @@ def get_status_message(config, log_level):
         
     return status_msg
 
+# MODERNIZED FOR PYTHON 3.13: Updated to use rich.table instead of terminaltables
 def get_telegram_group_message():
     global CONFIG
-    data_table = [['STATUS', 'NOTIFICATION NAME', 'BOT NAME', 'GROUP NAME']]
+    
+    # Create rich table instead of terminaltables
+    table = Table(title="Enabled Telegram Camera Notifications", show_header=True, header_style="bold magenta")
+    table.add_column("STATUS", style="cyan")
+    table.add_column("NOTIFICATION NAME", style="green")
+    table.add_column("BOT NAME", style="yellow")
+    table.add_column("GROUP NAME", style="blue")
+    
     for conf in CONFIG['NOTIFICATIONS']:
         if conf["ENABLED"]:
-            data_table.append([conf["LIVE_VERIFICATION"]["REASON"],
-                               conf["NOTIFICATION_NAME"],
-                               conf["LIVE_VERIFICATION"]["BOT_USERNAME"],
-                               conf["LIVE_VERIFICATION"]["GROUP_NAME"]])
-    table_instance = SingleTable(data_table, 'Enabled Telegram Camera Notifications')
-    return f'\n {CONFIG["SERVER"]["SERVER_LONG_NAME"]}\n\n' + str(table_instance.table) + '\n(Press ESC to close)'
+            table.add_row(
+                conf["LIVE_VERIFICATION"]["REASON"],
+                conf["NOTIFICATION_NAME"],
+                conf["LIVE_VERIFICATION"]["BOT_USERNAME"],
+                conf["LIVE_VERIFICATION"]["GROUP_NAME"]
+            )
+    
+    # Use rich console to render table
+    with console.capture() as capture:
+        console.print(f'\n{CONFIG["SERVER"]["SERVER_LONG_NAME"]}\n')
+        console.print(table)
+        console.print('\n(Press ESC to close)')
+    
+    return capture.get()
 
 
+# MODERNIZED FOR PYTHON 3.13: Updated to use rich console for output
 def show_telegram_groups_status():
     cls()
-    print(get_telegram_group_message())
+    console.print(get_telegram_group_message())
     try:
         wait_for_esc()
     except KeyboardInterrupt:
@@ -1309,9 +1386,11 @@ def show_live_log(listener, stream_handler, log_level):
         pass
     listener.removeHandler(stream_handler)
 
+# MODERNIZED FOR PYTHON 3.13: Updated to use our implemented wait_key function
 def wait_for_esc():
     while True:
-        if wait_key() in ['\x1b', '\x03']:
+        key = wait_key()
+        if key in ['esc', 'ctrl+c']:  # Modern keyboard library key names
             break
 
 def send_test_notification(listener, stream_handler, log_level, OutgoingQueues, History={}):                    
@@ -1345,34 +1424,36 @@ def send_test_notification(listener, stream_handler, log_level, OutgoingQueues, 
         msg += f'Event Time     : {History["EVENT_TIME"]}\n'
         msg += '\nSelection option:' 
         cls()
-        selection =  PromptUtils(Screen()).prompt_for_numbered_choice(choices=['Send', 'Edit', 'Reload Config', 'Cancel'], 
-                                                                      title=msg)
+        # MODERNIZED FOR PYTHON 3.13: Using rich console for menu selection
+        selection = prompt_for_numbered_choice(['Send', 'Edit', 'Reload Config', 'Cancel'], title=msg)
         
         #if PromptUtils(Screen()).prompt_for_yes_or_no(msg):
         if selection == 1:
-            print('\nLeave blank to use the [existing] values:')
-            IPC_NAME, valid                  = PromptUtils(Screen()).input(prompt = 'Camera Name: ', default=History['IPC_NAME'])
+            console.print('\nLeave blank to use the [existing] values:')
+            # MODERNIZED FOR PYTHON 3.13: Using rich console for input prompts
+            IPC_NAME, valid = prompt_input('Camera Name: ', default=History['IPC_NAME'])
             if IPC_NAME:
                 History['IPC_NAME'] = str(IPC_NAME)
             
-            CHANNEL_NAME, valid = PromptUtils(Screen()).input(prompt = 'Channel Name: ', default=History['CHANNEL_NAME'])
+            CHANNEL_NAME, valid = prompt_input('Channel Name: ', default=History['CHANNEL_NAME'])
             if CHANNEL_NAME:
-                History['CHANNEL_NAME']   = str(CHANNEL_NAME)
+                History['CHANNEL_NAME'] = str(CHANNEL_NAME)
             
-            CHANNEL_NUMBER, valid = PromptUtils(Screen()).input(prompt = 'Channel Number: ', default=History['CHANNEL_NUMBER'])
+            CHANNEL_NUMBER, valid = prompt_input('Channel Number: ', default=History['CHANNEL_NUMBER'])
             if CHANNEL_NUMBER:
                 History['CHANNEL_NUMBER'] = str(CHANNEL_NUMBER)
             
-            EVENT_TYPE, valid = PromptUtils(Screen()).input(prompt = 'Event Type: (comma separated list)', default=','.join(History['EVENT_TYPE']))
+            EVENT_TYPE, valid = prompt_input('Event Type: (comma separated list)', default=','.join(History['EVENT_TYPE']))
             if EVENT_TYPE:
-                History['EVENT_TYPE']     = csv2list(EVENT_TYPE)
+                History['EVENT_TYPE'] = csv2list(EVENT_TYPE)
             while True:
-                time_str, valid = PromptUtils(Screen()).input(prompt = 'Event Time (YYYY-MM-DD HH:MM:SS): ', default=History['EVENT_TIME'].strftime("%Y-%m-%d %H:%M:%S"))
+                # MODERNIZED FOR PYTHON 3.13: Using rich console for time input
+                time_str, valid = prompt_input('Event Time (YYYY-MM-DD HH:MM:SS): ', default=History['EVENT_TIME'].strftime("%Y-%m-%d %H:%M:%S"))
                 if time_str:    
                     try:
                         History['EVENT_TIME'] = datetime_parser(time_str)
                     except:
-                        PromptUtils(Screen()).enter_to_continue('Invalid event time given, try again or enter blank to use the current value.')
+                        enter_to_continue('Invalid event time given, try again or enter blank to use the current value.')
                         continue
                 break
         elif selection == 0:
@@ -1517,8 +1598,9 @@ def main():
                 
         if new_config:
             logger.info(f'Default config.ini generated at {CONFIG["PATHS"]["CONFIG_PATH"]}. Terminating application.')
-            msg = '\nDefault config.ini file generated\n'+os.path.join(CONFIG['PATHS']['CONFIG_PATH'], 'config.ini')+'\n\nPlease edit config.ini and restart the program. \n\nPress enter to close...\n'
-            PromptUtils(Screen()).enter_to_continue(message=msg)
+            msg = '\nDefault config.ini file generated\n'+os.path.join(CONFIG['PATHS']['CONFIG_PATH'], 'config.ini')+'\n\nPlease edit config.ini and restart the program.'
+            # MODERNIZED FOR PYTHON 3.13: Using rich console for configuration message
+            enter_to_continue(msg)
             return        
 
         if CONFIG['TELEGRAM']['ENABLED'] and CONFIG['TELEGRAM']['TOKEN'] and CONFIG['TELEGRAM']['CHAT_ID']:
@@ -1575,24 +1657,33 @@ def main():
             test_notification_history = {}
 
             while True:
-                try:    
-                    menu = ConsoleMenu(f'ON PATROL SERVER V{str(__version__)} BUILD:{__build__} (PID:{xstr(os.getpid())})', 
-                                       f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}',
-                                       prologue_text=(get_status_message(CONFIG, log_level)),
-                                       exit_option_text='Shutdown Server')
-                    menu.append_item(ExitItem('Reload Config'))
-                    menu.append_item(ExitItem('Send Test Notification'))
-                    menu.append_item(ExitItem('View Loaded Telegram Groups'))
-                    menu.append_item(ExitItem('View Live Log Output'))
+                try:
+                    # MODERNIZED FOR PYTHON 3.13: Replaced ConsoleMenu with rich-based menu
+                    cls()
+                    
+                    # Create title and status display
+                    title = f'ON PATROL SERVER V{str(__version__)} BUILD:{__build__} (PID:{xstr(os.getpid())})'
+                    subtitle = f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}'
+                    status = get_status_message(CONFIG, log_level)
+                    
+                    console.print(Panel(f"{title}\n{subtitle}\n{status}", title="OnPatrol Server", style="bold blue"))
+                    
+                    # Create menu options
+                    choices = [
+                        'Reload Config',
+                        'Send Test Notification', 
+                        'View Loaded Telegram Groups',
+                        'View Live Log Output'
+                    ]
                     
                     if logger.level > logging.DEBUG:
-                        menu.append_item(ExitItem('Turn Debug Logging On'))
+                        choices.append('Turn Debug Logging On')
                     else:
-                        menu.append_item(ExitItem('Turn Debug logging Off'))
-                     
-                    menu.show()
-                    menu.join()
-                    selection = menu.selected_option
+                        choices.append('Turn Debug Logging Off')
+                        
+                    choices.append('Shutdown Server')
+                    
+                    selection = prompt_for_numbered_choice(choices, "Main Menu")
                     
                     if selection == 0:
                         print(f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}' + '\nreloading config...')
@@ -1607,13 +1698,15 @@ def main():
                         show_telegram_groups_status()
                     elif selection == 3:
                         show_live_log(listener, stream_handler, log_level)
-                    elif selection == 4:
+                    elif selection == 4:  # Debug toggle (position may vary)
                         log_level = toggle_loglevel(all_log_handlers, log_level)
-                    elif selection == 5:
-                        if PromptUtils(Screen()).confirm_answer('', message=f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}' + '\nAre you sure you want to shutdown the server?'):
+                    elif selection == len(choices) - 1:  # Shutdown Server (always last option)
+                        # MODERNIZED FOR PYTHON 3.13: Using rich console for confirmation
+                        if confirm_answer(f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}\nAre you sure you want to shutdown the server?'):
                             break
                 except KeyboardInterrupt:
-                    if PromptUtils(Screen()).confirm_answer('', message=f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}' + '\nAre you sure you want to shutdown the server?'):
+                    # MODERNIZED FOR PYTHON 3.13: Using rich console for keyboard interrupt confirmation
+                    if confirm_answer(f'Server Name: {CONFIG["SERVER"]["SERVER_LONG_NAME"]}\nAre you sure you want to shutdown the server?'):
                         break
         finally:
             print('Please wait while the server shuts down safely...')
