@@ -22,3 +22,6 @@ opencv-contrib-python
 python-ffmpeg
 deepstack_sdk
 rich  # MODERN: Replaces console-menu and terminaltables
+pydantic[email]>=1.8,<2.0  # MODERN: Type-safe configuration management with validation
+pytest>=6.0  # TESTING: Unit testing framework for API endpoints
+pytest-asyncio  # TESTING: Async testing support for aiohttp endpoints

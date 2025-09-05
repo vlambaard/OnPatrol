@@ -51,6 +51,20 @@ from rich.text import Text
 # This is used to refactor from the old Console library no longer available in this version of Python
 import keyboard
 
+# MODERNIZED FOR PYTHON 3.13: Import modern configuration system
+try:
+    from config_integration import (
+        migrate_config_for_onpatrol, 
+        check_configuration_system_status,
+        get_configuration_manager
+    )
+    MODERN_CONFIG_AVAILABLE = True
+    print("✅ Modern Pydantic configuration system available")
+except ImportError as e:
+    print(f"⚠️ Modern configuration system not available: {e}")
+    print("📋 Using legacy configuration system")
+    MODERN_CONFIG_AVAILABLE = False
+
 
 import asyncio#, platform
 # if platform.system()=='Windows':
@@ -613,9 +627,33 @@ def reload_config(online_reload = False):
     
 def load_config():
     global CONFIG
+    
+    # MODERNIZED FOR PYTHON 3.13: Enhanced configuration loading with modern system
+    config_file_path = os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'config.ini')
+    
+    if MODERN_CONFIG_AVAILABLE:
+        try:
+            # Use modern configuration system with backward compatibility
+            logger.info("🚀 Loading configuration with modern Pydantic system...")
+            CONFIG = migrate_config_for_onpatrol(CONFIG, config_file_path)
+            
+            # Validate the configuration
+            manager = get_configuration_manager()
+            if manager.validate_configuration():
+                logger.info("✅ Configuration validation passed")
+            else:
+                logger.warning("⚠️ Configuration validation issues detected")
+            
+            return  # Exit early if modern system worked
+            
+        except Exception as ex:
+            logger.warning(f"Modern configuration system failed: {ex}")
+            logger.warning("🔄 Falling back to legacy configuration system...")
+    
+    # Legacy configuration loading (original implementation)
     try:
         config = configparser.ConfigParser(allow_no_value=True)
-        config.read(os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'config.ini'))
+        config.read(config_file_path)
     except Exception as ex:
         logger.critical(f'Error loading config.ini\n{str(ex)}')
         raise OSError(f'Error loading config.ini\n{str(ex)}')
@@ -627,7 +665,7 @@ def load_config():
             if not config.has_option(section, option):
                 config.set(section, option, str(CONFIG_FILE_SECTION_TEMPLATES[section][option]))
         
-    with open(os.path.join(CONFIG['PATHS']['CONFIG_PATH'] , 'config.ini'), 'w') as configfile:
+    with open(config_file_path, 'w') as configfile:
         config.write(configfile)
 
     for section in CONFIG_FILE_SECTION_TEMPLATES.keys():
@@ -1588,6 +1626,13 @@ def main():
             new_config = False
         
         load_config()
+        
+        # MODERNIZED FOR PYTHON 3.13: Display configuration system status
+        if MODERN_CONFIG_AVAILABLE and logger.level <= logging.INFO:
+            try:
+                check_configuration_system_status()
+            except Exception as e:
+                logger.warning(f"Could not display configuration status: {e}")
         
         #Check/Create image path
         if not os.path.exists(CONFIG['PATHS']['IMAGES_SAVE_PATH']):

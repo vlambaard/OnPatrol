@@ -1,0 +1,29 @@
+2025-08-17 22:09:18,533 [INFO] Using data storage location: /Users/boomslang/Code/claude_projects/OnPatrol/src/data
+2025-08-17 22:09:18,533 [INFO] Loading camera configs from /Users/boomslang/Code/claude_projects/OnPatrol/src/data/config
+2025-08-17 22:09:18,534 [INFO] Loading telegram group notifications from /Users/boomslang/Code/claude_projects/OnPatrol/src/data/config/notifications.ini
+2025-08-17 22:09:18,537 [INFO] Loading email_templates.ini from /Users/boomslang/Code/claude_projects/OnPatrol/src/data/config
+2025-08-17 22:09:18,537 [INFO] Loading unregisterd_camera_email_senders.ini from /Users/boomslang/Code/claude_projects/OnPatrol/src/data/config
+2025-08-17 22:09:18,537 [INFO] Default config.ini generated at /Users/boomslang/Code/claude_projects/OnPatrol/src/data/config. Terminating application.
+2025-08-17 22:33:25,568 [INFO] Using data storage location: /Users/boomslang/Code/claude_projects/OnPatrol/src/data
+2025-08-17 22:33:25,568 [INFO] 🚀 Loading configuration with modern Pydantic system...
+2025-08-17 22:40:41,858 [INFO] Using data storage location: /Users/boomslang/Code/claude_projects/OnPatrol/src/data
+2025-08-17 22:40:41,858 [INFO] 🚀 Loading configuration with modern Pydantic system...
+2025-08-17 22:40:41,860 [INFO] ✅ Configuration validation passed
+2025-08-17 22:40:41,860 [CRITICAL] Cannot create images folder at 
+[Errno 2] No such file or directory: ''
+2025-08-17 22:42:11,517 [INFO] Using data storage location: /Users/boomslang/Code/claude_projects/OnPatrol/src/data
+2025-08-17 22:42:11,517 [INFO] 🚀 Loading configuration with modern Pydantic system...
+2025-08-17 22:42:11,518 [INFO] ✅ Configuration validation passed
+2025-08-17 22:42:11,518 [CRITICAL] Cannot create images folder at 
+[Errno 2] No such file or directory: ''
+2025-08-17 22:42:11,520 [DEBUG] [TelegramNotifier] Started
+2025-08-17 22:42:11,522 [CRITICAL] Shutting down...
+2025-08-17 22:42:11,522 [DEBUG] [TelegramNotifier] Tables set up
+2025-08-17 22:42:11,522 [DEBUG] [Recorder]         Tables set up
+2025-08-17 22:42:11,522 [ERROR] 'IMAGES_KEEP_TIME'
+Traceback (most recent call last):
+  File "/Users/boomslang/Code/claude_projects/OnPatrol/src/NotificationRecorder.py", line 116, in ImagesDiskCleanUpWorker
+    expire_time = time.time()-self.config['RECORDER']['IMAGES_KEEP_TIME']
+                              ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+KeyError: 'IMAGES_KEEP_TIME'
+2025-08-17 22:42:11,523 [CRITICAL] Server TERMINATED

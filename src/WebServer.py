@@ -2,6 +2,8 @@ import threading, asyncio, datetime, sys
 
 from aiohttp import web
 from Common import aioEvent_ts #a thread safe asyncio.Event class
+from ConfigWebAPI import create_camera_routes
+from config import OnPatrolConfig
 import logging
 
 
@@ -45,7 +47,7 @@ async def start_site(runners, app, host='0.0.0.0', port=8080):
         
     logger.info(f' [WebServer]        Started on port {str(port)}')
                    
-async def web_server_main(host, port, exit_flags):
+async def web_server_main(host, port, exit_flags, config=None):
     try:
         loop = asyncio.get_running_loop()
     except:
@@ -55,7 +57,16 @@ async def web_server_main(host, port, exit_flags):
     runners = [] #To keep a record of the running web apps
 
     webapp = web.Application(logger=logger,middlewares=[handle_error_middleware])
+    
+    # Add basic status route
     webapp.add_routes([web.get('/', handle_get_running)])
+    
+    # Add camera management routes if config is provided
+    if config is not None:
+        camera_routes = create_camera_routes(config)
+        webapp.add_routes(camera_routes)
+        logger.info(f' [WebServer]        Added camera management API routes')
+    
     loop.create_task(start_site(runners, webapp, host, port))
     remove_aiohttp_stderr_logging()    
     await exit_flag.wait()
@@ -67,17 +78,19 @@ async def web_server_main(host, port, exit_flags):
             await runner.cleanup()
 
 class WebServer(threading.Thread):
-    def __init__(self, host, port):    
+    def __init__(self, host, port, config=None):    
         threading.Thread.__init__(self)
         self.name = 'WebServer'
         self.exit_flags = []
         self.host = host
         self.port = port
+        self.config = config
 
     def run(self):
-        asyncio.run(web_server_main(host      = self.host,
-                                    port      = self.port,
-                                    exit_flags = self.exit_flags))
+        asyncio.run(web_server_main(host       = self.host,
+                                    port       = self.port,
+                                    exit_flags = self.exit_flags,
+                                    config     = self.config))
     
     def stop(self):
         for flag in self.exit_flags:
