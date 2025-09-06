@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Settings - OnPatrol</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="stylesheet" href="/static/css/mobile-dashboard.css">
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+    <style>
+        .settings-section {
+            margin-bottom: 2rem;
+        }
+        .settings-group {
+            background: var(--card-background);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+        .settings-group-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0 0 1rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent-color);
+        }
+        .settings-row {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+        .setting-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        .setting-value {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            word-break: break-all;
+        }
+        .setting-value.boolean-true {
+            color: var(--success-color);
+            font-weight: 600;
+        }
+        .setting-value.boolean-false {
+            color: var(--error-color);
+            font-weight: 600;
+        }
+        .setting-value.empty {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        .config-status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+        .config-status.success {
+            background: var(--success-background);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+        .config-status.error {
+            background: var(--error-background);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+        }
+        @media (max-width: 768px) {
+            .settings-row {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <!-- Brand -->
+            <div class="sidebar-brand">
+                <div class="brand-logo">
+                    <div class="brand-icon">OP</div>
+                    <div>
+                        <div class="brand-name">OnPatrol</div>
+                        <div class="brand-subtitle">Security Monitoring</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Dashboard</div>
+                    <div class="nav-items">
+                        <a href="/" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                <polyline points="9,22 9,12 15,12 15,22"/>
+                            </svg>
+                            Overview
+                        </a>
+                        <a href="/status" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                            System Status
+                        </a>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Security</div>
+                    <div class="nav-items">
+                        <a href="/cameras" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                <circle cx="12" cy="13" r="4"/>
+                            </svg>
+                            Cameras
+                        </a>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Configuration</div>
+                    <div class="nav-items">
+                        <a href="/settings" class="nav-item active">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+                            </svg>
+                            Settings
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="app-main">
+            <!-- Page Header -->
+            <header class="page-header">
+                <h1 class="page-title">Server Settings</h1>
+                <p class="page-description">Current configuration settings for your OnPatrol server</p>
+            </header>
+
+            <!-- Main Content -->
+            <main class="main-content">
+
+                <!-- Configuration Status -->
+                <div id="config-status" class="config-status success">
+                    <strong>Configuration Status:</strong> <span id="config-status-text">Loading configuration...</span>
+                </div>
+
+                <!-- Server Configuration -->
+                <section class="settings-section">
+                    <div class="settings-group">
+                        <h2 class="settings-group-title">Server Configuration</h2>
+                        <div id="server-settings" class="settings-content">
+                            <!-- Server settings will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- HTTP Configuration -->
+                <section class="settings-section">
+                    <div class="settings-group">
+                        <h2 class="settings-group-title">HTTP Server</h2>
+                        <div id="http-settings" class="settings-content">
+                            <!-- HTTP settings will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SMTP Configuration -->
+                <section class="settings-section">
+                    <div class="settings-group">
+                        <h2 class="settings-group-title">SMTP Email Server</h2>
+                        <div id="smtp-settings" class="settings-content">
+                            <!-- SMTP settings will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Telegram Configuration -->
+                <section class="settings-section">
+                    <div class="settings-group">
+                        <h2 class="settings-group-title">Telegram Integration</h2>
+                        <div id="telegram-settings" class="settings-content">
+                            <!-- Telegram settings will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- DeepStack AI Configuration -->
+                <section class="settings-section">
+                    <div class="settings-group">
+                        <h2 class="settings-group-title">DeepStack AI</h2>
+                        <div id="deepstack-settings" class="settings-content">
+                            <!-- DeepStack settings will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Camera Configuration Summary -->
+                <section class="settings-section">
+                    <div class="settings-group">
+                        <h2 class="settings-group-title">Camera Configuration Summary</h2>
+                        <div id="camera-settings" class="settings-content">
+                            <!-- Camera settings summary will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Paths Configuration -->
+                <section class="settings-section">
+                    <div class="settings-group">
+                        <h2 class="settings-group-title">System Paths</h2>
+                        <div id="paths-settings" class="settings-content">
+                            <!-- Paths settings will be loaded here -->
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <script>
+        class SettingsManager {
+            constructor() {
+                this.loadSettings();
+            }
+
+            async loadSettings() {
+                try {
+                    const response = await fetch('/api/config');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    const config = await response.json();
+                    this.displaySettings(config);
+                    this.updateStatus('Configuration loaded successfully', 'success');
+                } catch (error) {
+                    console.error('Error loading settings:', error);
+                    this.updateStatus(`Error loading configuration: ${error.message}`, 'error');
+                    this.displayErrorMessage();
+                }
+            }
+
+            updateStatus(message, type) {
+                const statusDiv = document.getElementById('config-status');
+                const statusText = document.getElementById('config-status-text');
+                statusText.textContent = message;
+                statusDiv.className = `config-status ${type}`;
+            }
+
+            displayErrorMessage() {
+                const sections = ['server-settings', 'http-settings', 'smtp-settings', 'telegram-settings', 'deepstack-settings', 'camera-settings', 'paths-settings'];
+                sections.forEach(sectionId => {
+                    const element = document.getElementById(sectionId);
+                    element.innerHTML = '<div class="setting-value error">Unable to load configuration data</div>';
+                });
+            }
+
+            displaySettings(config) {
+                this.displaySection('server-settings', config.server || {});
+                this.displaySection('http-settings', config.http || {});
+                this.displaySection('smtp-settings', config.smtp || {});
+                this.displaySection('telegram-settings', config.telegram || {});
+                this.displaySection('deepstack-settings', config.deepstack || {});
+                this.displayCamerasSummary(config.cameras || {});
+                this.displaySection('paths-settings', config.paths || {});
+            }
+
+            displaySection(sectionId, data) {
+                const container = document.getElementById(sectionId);
+                container.innerHTML = '';
+
+                if (Object.keys(data).length === 0) {
+                    container.innerHTML = '<div class="setting-value empty">No configuration data available</div>';
+                    return;
+                }
+
+                Object.entries(data).forEach(([key, value]) => {
+                    // Skip complex objects and private fields
+                    if (typeof value === 'object' && value !== null) return;
+                    if (key.startsWith('_')) return;
+
+                    const row = document.createElement('div');
+                    row.className = 'settings-row';
+
+                    const label = document.createElement('div');
+                    label.className = 'setting-label';
+                    label.textContent = this.formatLabel(key);
+
+                    const valueDiv = document.createElement('div');
+                    valueDiv.className = 'setting-value';
+                    
+                    if (value === null || value === undefined || value === '') {
+                        valueDiv.className += ' empty';
+                        valueDiv.textContent = '(not set)';
+                    } else if (typeof value === 'boolean') {
+                        valueDiv.className += value ? ' boolean-true' : ' boolean-false';
+                        valueDiv.textContent = value ? 'Enabled' : 'Disabled';
+                    } else if (key.toLowerCase().includes('password') || key.toLowerCase().includes('token')) {
+                        valueDiv.textContent = '••••••••';
+                    } else {
+                        valueDiv.textContent = String(value);
+                    }
+
+                    row.appendChild(label);
+                    row.appendChild(valueDiv);
+                    container.appendChild(row);
+                });
+            }
+
+            displayCamerasSummary(cameras) {
+                const container = document.getElementById('camera-settings');
+                container.innerHTML = '';
+
+                const cameraCount = Object.keys(cameras).length;
+                
+                if (cameraCount === 0) {
+                    container.innerHTML = '<div class="setting-value empty">No cameras configured</div>';
+                    return;
+                }
+
+                // Summary information
+                const summaryRow = document.createElement('div');
+                summaryRow.className = 'settings-row';
+                
+                const summaryLabel = document.createElement('div');
+                summaryLabel.className = 'setting-label';
+                summaryLabel.textContent = 'Total Cameras';
+                
+                const summaryValue = document.createElement('div');
+                summaryValue.className = 'setting-value';
+                summaryValue.textContent = cameraCount;
+                
+                summaryRow.appendChild(summaryLabel);
+                summaryRow.appendChild(summaryValue);
+                container.appendChild(summaryRow);
+
+                // List camera names
+                const cameraNames = Object.keys(cameras);
+                if (cameraNames.length > 0) {
+                    const namesRow = document.createElement('div');
+                    namesRow.className = 'settings-row';
+                    
+                    const namesLabel = document.createElement('div');
+                    namesLabel.className = 'setting-label';
+                    namesLabel.textContent = 'Camera Names';
+                    
+                    const namesValue = document.createElement('div');
+                    namesValue.className = 'setting-value';
+                    namesValue.textContent = cameraNames.join(', ');
+                    
+                    namesRow.appendChild(namesLabel);
+                    namesRow.appendChild(namesValue);
+                    container.appendChild(namesRow);
+                }
+            }
+
+            formatLabel(key) {
+                return key.replace(/_/g, ' ')
+                         .replace(/([A-Z])/g, ' $1')
+                         .replace(/^./, str => str.toUpperCase())
+                         .trim();
+            }
+        }
+
+        // Initialize settings manager when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SettingsManager();
+        });
+    </script>
+</body>
+</html>

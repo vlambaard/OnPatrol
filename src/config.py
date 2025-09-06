@@ -72,6 +72,9 @@ class ServerConfig(BaseModel):
     """Server configuration settings"""
     process_id: str = Field(default="", description="Process identifier for logging")
     server_id: str = Field(default="OnPatrol", description="Server identification string")
+    server_long_name: str = Field(default="OnPatrolServer", description="Long server name")
+    server_short_name: str = Field(default="OnPatrol", description="Short server name")  
+    host_name: str = Field(default="127.0.0.1", description="Server hostname/IP address")
     
     class Config:
         extra = "allow"  # Allow additional fields for backward compatibility
@@ -443,15 +446,26 @@ class OnPatrolConfig(BaseSettings):
     @root_validator(pre=True)
     def setup_paths(cls, values):
         """Ensure paths are properly configured before other validation"""
-        if 'paths' not in values:
+        if 'paths' not in values or values['paths'] is None:
             values['paths'] = {}
         
-        # Set default data path if not specified
-        if 'data_path' not in values['paths'] or not values['paths']['data_path']:
-            values['paths']['data_path'] = './data'
+        # Only modify if paths is still a dict (pre-validation)
+        if isinstance(values.get('paths'), dict):
+            # Set default data path if not specified
+            if 'data_path' not in values['paths'] or not values['paths']['data_path']:
+                values['paths']['data_path'] = './data'
         
         return values
     
+    def _convert_to_legacy_format(self, section_dict: dict) -> dict:
+        """Convert a Pydantic model dict to legacy uppercase format"""
+        legacy_dict = {}
+        for key, value in section_dict.items():
+            # Convert snake_case to UPPER_CASE for legacy compatibility
+            legacy_key = key.upper()
+            legacy_dict[legacy_key] = value
+        return legacy_dict
+
     def get_legacy_config(self) -> Dict[str, Any]:
         """Convert Pydantic config back to legacy CONFIG dictionary format
         
@@ -463,22 +477,22 @@ class OnPatrolConfig(BaseSettings):
             Dict[str, Any]: Configuration in legacy format
         """
         
-        # Start with the base structure
+        # Start with the base structure - convert field names to uppercase
         legacy_config = {
-            'SERVER': self.server.dict(),
-            'RECORDER': self.recorder.dict(),
-            'HTTP': self.http.dict(),
-            'SMTP': {**self.smtp.dict(), 'EMAIL_TEMPLATES': self.smtp.email_templates},
-            'ISAPI': self.isapi.dict(),
-            'TELEGRAM': self.telegram.dict(),
+            'SERVER': self._convert_to_legacy_format(self.server.dict()),
+            'RECORDER': self._convert_to_legacy_format(self.recorder.dict()),
+            'HTTP': self._convert_to_legacy_format(self.http.dict()),
+            'SMTP': {**self._convert_to_legacy_format(self.smtp.dict()), 'EMAIL_TEMPLATES': self.smtp.email_templates},
+            'ISAPI': self._convert_to_legacy_format(self.isapi.dict()),
+            'TELEGRAM': self._convert_to_legacy_format(self.telegram.dict()),
             'DEEPSTACK': {
-                **self.deepstack.dict(),
+                **self._convert_to_legacy_format(self.deepstack.dict()),
                 'CAMERA_PROFILES': self.deepstack.camera_profiles,
                 'CAMERA_NAME_INDEX': {},  # Will be populated from cameras
                 'ALL_CAMERAS_INDEX': {}   # Will be populated from cameras
             },
             'UNREGISTERED_CAMERAS': {
-                **self.unregistered_cameras.dict(),
+                **self._convert_to_legacy_format(self.unregistered_cameras.dict()),
                 'EMAIL_INDEX': self.unregistered_cameras.email_index
             },
             'CAMERAS': {

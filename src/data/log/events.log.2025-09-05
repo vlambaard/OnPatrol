@@ -1,0 +1,26 @@
+2025-09-05 20:30:59,354 [INFO] Using data storage location: /Users/boomslang/Code/claude_projects/OnPatrol/src/data
+2025-09-05 20:30:59,354 [INFO] 🚀 Loading configuration with modern Pydantic system...
+2025-09-05 20:30:59,355 [INFO] ✅ Configuration validation passed
+2025-09-05 20:30:59,356 [CRITICAL] Cannot create images folder at 
+[Errno 2] No such file or directory: ''
+2025-09-05 20:30:59,357 [CRITICAL] Shutting down...
+2025-09-05 20:30:59,358 [ERROR] 'IMAGES_KEEP_TIME'
+Traceback (most recent call last):
+  File "/Users/boomslang/Code/claude_projects/OnPatrol/src/NotificationRecorder.py", line 116, in ImagesDiskCleanUpWorker
+    expire_time = time.time()-self.config['RECORDER']['IMAGES_KEEP_TIME']
+                              ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+KeyError: 'IMAGES_KEEP_TIME'
+2025-09-05 20:30:59,359 [CRITICAL] Server TERMINATED
+2025-09-05 21:55:06,580 [INFO] Using data storage location: /Users/boomslang/Code/claude_projects/OnPatrol/src/data
+2025-09-05 21:55:06,580 [INFO] 🚀 Loading configuration with modern Pydantic system...
+2025-09-05 21:55:06,581 [INFO] ✅ Configuration validation passed
+2025-09-05 21:55:06,581 [CRITICAL] Cannot create images folder at 
+[Errno 2] No such file or directory: ''
+2025-09-05 21:55:06,587 [CRITICAL] Shutting down...
+2025-09-05 21:55:06,587 [ERROR] 'IMAGES_KEEP_TIME'
+Traceback (most recent call last):
+  File "/Users/boomslang/Code/claude_projects/OnPatrol/src/NotificationRecorder.py", line 116, in ImagesDiskCleanUpWorker
+    expire_time = time.time()-self.config['RECORDER']['IMAGES_KEEP_TIME']
+                              ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+KeyError: 'IMAGES_KEEP_TIME'
+2025-09-05 21:55:06,589 [CRITICAL] Server TERMINATED

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Management - OnPatrol</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <!-- Brand -->
+            <div class="sidebar-brand">
+                <div class="brand-logo">
+                    <div class="brand-icon">OP</div>
+                    <div>
+                        <div class="brand-name">OnPatrol</div>
+                        <div class="brand-subtitle">Security Monitoring</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Dashboard</div>
+                    <div class="nav-items">
+                        <a href="/" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                <polyline points="9,22 9,12 15,12 15,22"/>
+                            </svg>
+                            Overview
+                        </a>
+                        <a href="/status" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                            System Status
+                        </a>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Security</div>
+                    <div class="nav-items">
+                        <a href="/cameras" class="nav-item active">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="m23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                <circle cx="12" cy="13" r="4"/>
+                            </svg>
+                            Cameras
+                        </a>
+                        <a href="/events" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14,2 14,8 20,8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10,9 9,9 8,9"/>
+                            </svg>
+                            Events
+                        </a>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Configuration</div>
+                    <div class="nav-items">
+                        <a href="/settings" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+                            </svg>
+                            Settings
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="app-main">
+            <!-- Page Header -->
+            <header class="page-header">
+                <div class="page-header-content">
+                    <div>
+                        <h1 class="page-title">Camera Management</h1>
+                        <p class="page-description">Configure and monitor your security cameras</p>
+                    </div>
+                    <div class="page-actions">
+                        <button class="btn btn-primary" onclick="CameraManager.showAddForm()">
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                            Add Camera
+                        </button>
+                        <button class="btn btn-secondary" onclick="CameraManager.testAllCameras()">
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M9 12l2 2 4-4"/>
+                                <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                            Test All
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="main-content">
+
+                <!-- Camera List Section -->
+                <section class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Configured Cameras</h2>
+                        <span class="section-subtitle" id="camera-count">0 cameras</span>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-content">
+                            <!-- Camera Grid -->
+                            <div class="camera-grid" id="camera-grid">
+                                <!-- Camera cards will be populated by JavaScript -->
+                            </div>
+
+                            <!-- Empty State -->
+                            <div class="empty-state" id="empty-state" style="display: none;">
+                                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                    <circle cx="12" cy="13" r="4"/>
+                                </svg>
+                                <h3 class="empty-title">No cameras configured</h3>
+                                <p class="empty-description">Add your first security camera to start monitoring</p>
+                                <button class="btn btn-primary" onclick="CameraManager.showAddForm()">Add First Camera</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <!-- Footer -->
+            <footer class="app-footer">
+                <p>&copy; 2025 OnPatrol - Community Security Monitoring System</p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Camera Form Modal -->
+    <div class="modal-overlay" id="camera-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">Add New Camera</h2>
+                <button class="modal-close" onclick="CameraManager.hideForm()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="camera-form" class="camera-form">
+                    <input type="hidden" id="camera-id" name="camera_id">
+                    
+                    <!-- Basic Information -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Basic Information</h3>
+                        
+                        <div class="form-group">
+                            <label for="camera_name" class="form-label">Camera Name *</label>
+                            <input type="text" id="camera_name" name="camera_name" class="form-input" 
+                                   placeholder="e.g., Front Door Camera" required>
+                            <div class="form-error" id="camera_name-error"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="address" class="form-label">IP Address *</label>
+                            <input type="text" id="address" name="address" class="form-input" 
+                                   placeholder="e.g., 192.168.1.100" required>
+                            <div class="form-error" id="address-error"></div>
+                        </div>
+                    </div>
+
+                    <!-- Authentication -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Authentication</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" id="username" name="username" class="form-input" 
+                                       placeholder="Camera username" autocomplete="username">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" id="password" name="password" class="form-input" 
+                                       placeholder="Camera password" autocomplete="current-password">
+                                <div class="form-error" id="password-error"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email Configuration -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Email Settings</h3>
+                        
+                        <div class="form-group">
+                            <label for="email_from" class="form-label">Email From Address</label>
+                            <input type="email" id="email_from" name="email_from" class="form-input" 
+                                   placeholder="camera@example.com">
+                        </div>
+                    </div>
+
+                    <!-- Advanced Settings -->
+                    <div class="form-section">
+                        <h3 class="form-section-title">Advanced Settings</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="timezone" class="form-label">Timezone</label>
+                                <select id="timezone" name="timezone" class="form-select">
+                                    <option value="US/Eastern">US/Eastern</option>
+                                    <option value="US/Central">US/Central</option>
+                                    <option value="US/Mountain">US/Mountain</option>
+                                    <option value="US/Pacific">US/Pacific</option>
+                                    <option value="UTC">UTC</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="rtsp_port" class="form-label">RTSP Port</label>
+                                <input type="number" id="rtsp_port" name="rtsp_port" class="form-input" 
+                                       placeholder="554" min="1" max="65535">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="enabled" name="enabled" checked>
+                                <span class="checkbox-text">Enable camera monitoring</span>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="CameraManager.hideForm()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="CameraManager.testConnection()" id="test-btn">Test Connection</button>
+                <button type="submit" form="camera-form" class="btn btn-primary" id="save-btn">Save Camera</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading...</p>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="delete-modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2 class="modal-title">Confirm Delete</h2>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete camera "<span id="delete-camera-name"></span>"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="CameraManager.hideDeleteModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="CameraManager.confirmDelete()" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/components.js"></script>
+    <script src="/static/js/main.js"></script>
+    
+    <script>
+        // Initialize camera management when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            CameraManager.init();
+        });
+    </script>
+</body>
+</html>

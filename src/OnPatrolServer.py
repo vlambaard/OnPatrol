@@ -861,13 +861,18 @@ def load_NotificationConfig(online_reload=False):
                     new_notification[key] = config[section].get(key, '')#.lower()
         new_notification['MSG_EXPIRY_TIME'] = time2seconds(new_notification['MSG_EXPIRY_TIME'])
         UnverifiedNotificationConfigs.append(new_notification)
+    # Create a new event loop for this operation to avoid conflicts
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-    except:
-        loop = asyncio.new_event_loop()
-    CONFIG['NOTIFICATIONS'] = loop.run_until_complete(verify_chat_ids(UnverifiedNotificationConfigs))
+        CONFIG['NOTIFICATIONS'] = loop.run_until_complete(verify_chat_ids(UnverifiedNotificationConfigs))
+    finally:
+        loop.close()
+        # Reset the event loop policy to avoid future conflicts
+        try:
+            asyncio.set_event_loop(None)
+        except:
+            pass
     if len(UnverifiedNotificationConfigs) > 0:
         for conf in CONFIG['NOTIFICATIONS']:
             msg = ' -> '
@@ -1246,6 +1251,7 @@ def load_unregistered_camera_email_senders(online_reload=False):
     CONFIG['UNREGISTERED_CAMERAS']['EMAIL_INDEX'] = email_addesses.copy()
 
 async def get_bot_username(token):
+    bot = None
     try:
         bot = TelegramBot(token=token)
         me = await bot.get_me()
@@ -1256,7 +1262,7 @@ async def get_bot_username(token):
         logger.error(f'Error retrieving chat bot username. {str(ex)}')
         username = ''
     finally:
-        if bot._session:
+        if bot and bot._session:
             await bot._session.close()
 
     return username
@@ -1276,6 +1282,7 @@ async def verify_chat_id_worker(conf, flood_controller):
                     'GROUP_NAME':''
                     }
     
+    bot = None
     try:
         bot = TelegramBot(token=conf['BOT_TOKEN'])
         await flood_controller.delay(token=conf['BOT_TOKEN'], 
@@ -1315,7 +1322,7 @@ async def verify_chat_id_worker(conf, flood_controller):
         conf['LIVE_VERIFICATION'] = verification
     finally:
         try:
-            if bot._session:
+            if bot and bot._session:
                 await bot._session.close()
         except:
             pass
@@ -1692,8 +1699,20 @@ def main():
             
             if CONFIG['HTTP']['ENABLED']:
                 from WebServer import WebServer as WebServer_
+                
+                # Get modern config for WebServer if available
+                modern_config = None
+                if MODERN_CONFIG_AVAILABLE:
+                    try:
+                        manager = get_configuration_manager()
+                        modern_config = manager.get_modern_config()
+                        logger.debug("🔧 Passing modern config to WebServer for full API support")
+                    except Exception as ex:
+                        logger.warning(f"⚠️ Could not get modern config for WebServer: {ex}")
+                
                 WebServer_Thread = WebServer_(host = CONFIG['SERVER']['HOST_NAME'],
-                                              port = CONFIG['HTTP']['PORT'])
+                                              port = CONFIG['HTTP']['PORT'],
+                                              config = modern_config)
                 WebServer_Thread.start()
                 threads.append(WebServer_Thread)
  

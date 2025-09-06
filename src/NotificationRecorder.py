@@ -94,10 +94,8 @@ class NotificationRecorder(threading.Thread):
 
 
     async def NotificationRecorderMain(self):
-        try:
-            self.loop=asyncio.get_running_loop()
-        except:
-            self.loop=asyncio.new_event_loop()
+        # We're already inside asyncio.run(), so we have a running loop
+        self.loop = asyncio.get_running_loop()
         
         self.exit_flag = aioEvent_ts()
         self.dbm = DataBaseManager(self._db_conn)

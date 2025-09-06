@@ -3,6 +3,8 @@ import threading, asyncio, datetime, sys
 from aiohttp import web
 from Common import aioEvent_ts #a thread safe asyncio.Event class
 from ConfigWebAPI import create_camera_routes
+from StatusAPI import create_status_routes
+from WebTemplates import create_template_routes
 from config import OnPatrolConfig
 import logging
 
@@ -48,24 +50,33 @@ async def start_site(runners, app, host='0.0.0.0', port=8080):
     logger.info(f' [WebServer]        Started on port {str(port)}')
                    
 async def web_server_main(host, port, exit_flags, config=None):
-    try:
-        loop = asyncio.get_running_loop()
-    except:
-        loop = asyncio.new_event_loop()
+    # We're already inside asyncio.run(), so we have a running loop
+    loop = asyncio.get_running_loop()
     exit_flag = aioEvent_ts()
     exit_flags.append(exit_flag)
     runners = [] #To keep a record of the running web apps
 
     webapp = web.Application(logger=logger,middlewares=[handle_error_middleware])
     
-    # Add basic status route
-    webapp.add_routes([web.get('/', handle_get_running)])
+    # Add web template routes (HTML pages and static assets)
+    template_routes = create_template_routes(config)
+    webapp.add_routes(template_routes)
+    logger.info(f' [WebServer]        Added web template routes')
     
-    # Add camera management routes if config is provided
+    # Add API routes if config is provided
     if config is not None:
+        # Add camera management routes
         camera_routes = create_camera_routes(config)
         webapp.add_routes(camera_routes)
         logger.info(f' [WebServer]        Added camera management API routes')
+        
+        # Add status monitoring routes
+        status_routes = create_status_routes(config)
+        webapp.add_routes(status_routes)
+        logger.info(f' [WebServer]        Added status monitoring API routes')
+    else:
+        # Add basic status route for legacy compatibility
+        webapp.add_routes([web.get('/api/status', handle_get_running)])
     
     loop.create_task(start_site(runners, webapp, host, port))
     remove_aiohttp_stderr_logging()    

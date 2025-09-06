@@ -363,10 +363,8 @@ async def SentItemsCleanupWorker(dbm, flood_controller, exit_flag):
         
         
 async def TelegramNotifierMain(config, db_conn, camera_notification_queue, exit_flags):
-    try:
-        loop=asyncio.get_running_loop()
-    except:
-        loop=asyncio.new_event_loop()
+    # We're already inside asyncio.run(), so we have a running loop
+    loop = asyncio.get_running_loop()
     
     exit_flag = aioEvent_ts()
     exit_flags.append(exit_flag)

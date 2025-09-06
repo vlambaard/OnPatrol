@@ -57,6 +57,9 @@ def create_camera_routes(config: OnPatrolConfig) -> list:
     # Camera connectivity testing
     routes.append(web.post('/api/cameras/{camera_id}/test', lambda req: test_camera_handler(req, config)))
     
+    # Configuration endpoints
+    routes.append(web.get('/api/config', lambda req: get_config_handler(req, config)))
+    
     return routes
 
 
@@ -528,3 +531,69 @@ def validate_email_address(email: str) -> Dict[str, Any]:
             'valid': False,
             'error': 'Invalid email address format'
         }
+
+
+async def get_config_handler(request: web.Request, config: OnPatrolConfig) -> web.Response:
+    """GET /api/config - Get all server configuration settings
+    
+    Returns:
+        JSON response with all configuration sections
+    """
+    try:
+        # Get configuration data, sanitizing sensitive information
+        config_data = {
+            'server': config.server.dict(),
+            'http': config.http.dict(),
+            'smtp': config.smtp.dict(),
+            'isapi': config.isapi.dict(),
+            'telegram': _sanitize_telegram_config(config.telegram.dict()),
+            'deepstack': config.deepstack.dict(),
+            'unregistered_cameras': config.unregistered_cameras.dict(),
+            'paths': config.paths.dict(),
+            'cameras': _sanitize_cameras_config(config.cameras),
+            'camera_clusters': {name: cluster.dict() for name, cluster in config.camera_clusters.items()},
+            'notifications': [_sanitize_notification_config(notif.dict()) for notif in config.notifications],
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        logger.debug('[ConfigWebAPI] Configuration retrieved successfully')
+        return web.json_response(config_data)
+        
+    except Exception as ex:
+        logger.error(f'[ConfigWebAPI] Error retrieving configuration: {ex}')
+        return web.json_response(
+            {
+                'error': 'Failed to retrieve configuration',
+                'message': str(ex),
+                'timestamp': datetime.now().isoformat()
+            },
+            status=500
+        )
+
+
+def _sanitize_telegram_config(telegram_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Sanitize Telegram configuration by hiding sensitive tokens"""
+    sanitized = telegram_config.copy()
+    if 'bot_token' in sanitized and sanitized['bot_token']:
+        sanitized['bot_token'] = '••••••••'
+    return sanitized
+
+
+def _sanitize_cameras_config(cameras: Dict[str, Any]) -> Dict[str, Any]:
+    """Sanitize camera configurations by hiding passwords"""
+    sanitized_cameras = {}
+    for camera_id, camera_config in cameras.items():
+        camera_dict = camera_config.dict() if hasattr(camera_config, 'dict') else camera_config
+        sanitized_camera = camera_dict.copy()
+        if 'password' in sanitized_camera and sanitized_camera['password']:
+            sanitized_camera['password'] = '••••••••'
+        sanitized_cameras[camera_id] = sanitized_camera
+    return sanitized_cameras
+
+
+def _sanitize_notification_config(notification_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Sanitize notification configuration by hiding tokens"""
+    sanitized = notification_config.copy()
+    if 'bot_token' in sanitized and sanitized['bot_token']:
+        sanitized['bot_token'] = '••••••••'
+    return sanitized

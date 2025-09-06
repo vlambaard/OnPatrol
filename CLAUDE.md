@@ -25,8 +25,18 @@ When asked to work on this codebase:
    - For tasks execution: @.agent-os/instructions/execute-tasks.md
 3. **Always**, adhere to the standards in the files listed above
 
+## Python Environment Requirements
+
+- **ALWAYS use `python3` command** instead of `python` for all Python operations
+- **ALWAYS ensure virtual environment is activated** before running Python commands
+- Virtual environment is located at: `.venv/` in the project root
+- Activate with Fish shell: `source .venv/bin/activate.fish`
+- Verify activation by checking: `which python3` should show .venv path
+- **Environment:** Fish shell is used in this environment
+
 ## Important Notes
 
 - Product-specific files in `.agent-os/product/` override any global standards
 - User's specific instructions override (or amend) instructions found in `.agent-os/specs/...`
-- Always adhere to established patterns, code style, and best practices documented above.
+- Always adhere to established patterns, code style, and best practices documented above
+- **Critical:** Always use `python3` and verify virtual environment is active before executing any Python code

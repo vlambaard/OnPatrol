@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnPatrol - Community Security Monitoring</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <!-- Brand -->
+            <div class="sidebar-brand">
+                <div class="brand-logo">
+                    <div class="brand-icon">OP</div>
+                    <div>
+                        <div class="brand-name">OnPatrol</div>
+                        <div class="brand-subtitle">Security Monitoring</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Dashboard</div>
+                    <div class="nav-items">
+                        <a href="/" class="nav-item active">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                <polyline points="9,22 9,12 15,12 15,22"/>
+                            </svg>
+                            Overview
+                        </a>
+                        <a href="/status" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                            System Status
+                        </a>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Security</div>
+                    <div class="nav-items">
+                        <a href="/cameras" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="m23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                <circle cx="12" cy="13" r="4"/>
+                            </svg>
+                            Cameras
+                        </a>
+                        <a href="/events" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14,2 14,8 20,8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10,9 9,9 8,9"/>
+                            </svg>
+                            Events
+                        </a>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Configuration</div>
+                    <div class="nav-items">
+                        <a href="/settings" class="nav-item">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+                            </svg>
+                            Settings
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="app-main">
+            <!-- Page Header -->
+            <header class="page-header">
+                <h1 class="page-title">Dashboard</h1>
+                <p class="page-description">Monitor your security system at a glance</p>
+            </header>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- System Overview Section -->
+                <section class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">System Overview</h2>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshDashboard()">
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <polyline points="23 4 23 10 17 10"/>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                            </svg>
+                            Refresh
+                        </button>
+                    </div>
+                    
+                    <div class="metrics-grid">
+                        <div class="card metric-card">
+                            <div class="metric-value" id="uptime-hours">--</div>
+                            <div class="metric-label">System Uptime</div>
+                            <div class="metric-trend up">
+                                <span>↗</span> Stable
+                            </div>
+                        </div>
+                        <div class="card metric-card">
+                            <div class="metric-value text-success" id="online-cameras">0</div>
+                            <div class="metric-label">Online Cameras</div>
+                            <div class="metric-trend up">
+                                <span>↗</span> All active
+                            </div>
+                        </div>
+                        <div class="card metric-card">
+                            <div class="metric-value text-warning" id="total-events">0</div>
+                            <div class="metric-label">Events Today</div>
+                            <div class="metric-trend">
+                                <span>→</span> Normal
+                            </div>
+                        </div>
+                        <div class="card metric-card">
+                            <div class="metric-value text-info" id="cpu-usage">--</div>
+                            <div class="metric-label">CPU Usage</div>
+                            <div class="metric-trend">
+                                <span>→</span> Optimal
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Services Status Section -->
+                <section class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Service Status</h2>
+                        <a href="/status" class="btn btn-secondary btn-sm">View Details</a>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-content">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Service</th>
+                                        <th>Status</th>
+                                        <th>Details</th>
+                                        <th>Last Check</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Web Server</td>
+                                        <td><span class="status-badge success" id="web-status">Running</span></td>
+                                        <td id="web-details">Port 8080</td>
+                                        <td class="text-secondary">Just now</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Email Server</td>
+                                        <td><span class="status-badge info" id="email-status">Disabled</span></td>
+                                        <td id="email-details">Port 25</td>
+                                        <td class="text-secondary">--</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Telegram Bot</td>
+                                        <td><span class="status-badge info" id="telegram-status">Disabled</span></td>
+                                        <td id="telegram-details">Not configured</td>
+                                        <td class="text-secondary">--</td>
+                                    </tr>
+                                    <tr>
+                                        <td>DeepStack AI</td>
+                                        <td><span class="status-badge info">Disabled</span></td>
+                                        <td>Object detection disabled</td>
+                                        <td class="text-secondary">--</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Recent Activity Section -->
+                <section class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Recent Activity</h2>
+                        <a href="/events" class="btn btn-secondary btn-sm">View All</a>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-content">
+                            <table class="data-table" id="events-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Event</th>
+                                        <th>Camera</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="events-tbody">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-secondary">
+                                            No recent events to display
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Quick Actions Section -->
+                <section class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Quick Actions</h2>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <a href="/cameras" class="btn btn-primary">
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                            Add Camera
+                        </a>
+                        <button class="btn btn-secondary" onclick="testAllCameras()">
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M9 12l2 2 4-4"/>
+                                <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                            Test Cameras
+                        </button>
+                        <a href="/cameras" class="btn btn-secondary">
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="m23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                <circle cx="12" cy="13" r="4"/>
+                            </svg>
+                            Manage Cameras
+                        </a>
+                    </div>
+                </section>
+            </main>
+            
+            <!-- Footer -->
+            <footer class="app-footer">
+                <p>&copy; 2025 OnPatrol - Community Security Monitoring System</p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Loading...</p>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/components.js"></script>
+    <script src="/static/js/main.js"></script>
+    
+    <script>
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            Dashboard.init();
+        });
+    </script>
+</body>
+</html>

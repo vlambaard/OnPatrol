@@ -185,7 +185,7 @@ def SynchronousProcedure(obj, method, *args, **kwargs):
     
 
 async def SyncCall(obj, method, *args, **kwargs):
-    return await asyncio.get_event_loop().run_in_executor(None, 
+    return await asyncio.get_running_loop().run_in_executor(None, 
                                                           functools.partial(SynchronousProcedure, 
                                                                             obj, 
                                                                             method, 
